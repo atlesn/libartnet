@@ -1147,38 +1147,37 @@ int artnet_set_node_type(artnet_node vn, artnet_node_type type) {
  * @param vn the artnet_node
  * @param subnet new subnet address
  */
-int artnet_set_subnet_addr(artnet_node vn, int bind_index, uint8_t subnet) {
+int artnet_set_subnet_addr(artnet_node vn, uint8_t subnet) {
   node n = (node) vn;
-  int i, ret;
+  int i, j, ret;
 
   check_nullnode(vn);
 
   n->state.default_subnet = subnet;
-
-  if (bind_index < 0 || bind_index >= ARTNET_MAX_PAGES) {
-    artnet_error("%s : bind index out of bounds (%i < 0 || %i > ARTNET_MAX_PAGES)", __FUNCTION__, bind_index);
-    return ARTNET_EARG;
-  }
 
   // if not under network control, and the subnet is different from the current one
   if (!n->state.subnet_net_ctl && subnet != n->state.subnet) {
     n->state.subnet = subnet;
 
     // redo the addresses for each port
-    for (i =0; i < ARTNET_MAX_PORTS; i++) {
-      n->ports_page[bind_index].in[i].port_addr = ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[bind_index].in[i].port_addr & LOW_NIBBLE);
-      // reset dmx sequence number
-      n->ports_page[bind_index].in[i].seq = 0;
+    for(j = 0; j < n->nbpages ; j ++){
+        for (i =0; i < ARTNET_MAX_PORTS; i++) {
+        n->ports_page[j].in[i].port_addr = ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[j].in[i].port_addr & LOW_NIBBLE);
+        // reset dmx sequence number
+        n->ports_page[j].in[i].seq = 0;
 
-      n->ports_page[bind_index].out[i].port_addr = ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[bind_index].out[i].port_addr & LOW_NIBBLE);
-    }
+        n->ports_page[j].out[i].port_addr = ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[j].out[i].port_addr & LOW_NIBBLE);
+        }
 
-    if (n->state.mode == ARTNET_ON) {
+        if (n->state.mode == ARTNET_ON) {
 
-      if ((ret = artnet_tx_build_art_poll_reply(n)))
-        return ret;
+            if ((ret = artnet_tx_build_art_poll_reply(n)))
+                return ret;
 
-      return artnet_tx_poll_reply(n, bind_index, FALSE);
+            if((ret = artnet_tx_poll_reply(n, j, FALSE)) != ARTNET_EOK){
+                return ret ;
+            }
+        }
     }
   } else if (n->state.subnet_net_ctl ) {
     //  trying to change subnet addr while under network control
@@ -1247,7 +1246,7 @@ int artnet_set_port_type(artnet_node vn,
     artnet_error("%s : bind index out of bounds (%i < 0 || %i > ARTNET_MAX_PAGES)", __FUNCTION__, bind_index);
     return ARTNET_EARG;
   }
-  while(bind_index > n->nbpages) n->nbpages ++ ;
+  while(n->nbpages <= bind_index) n->nbpages ++ ;
   n->ports_page[bind_index].types[port_id] = settings | data;
   return ARTNET_EOK;
 }
@@ -1305,7 +1304,7 @@ int artnet_set_port_addr(artnet_node vn,
     artnet_error("%s : Attempt to set port %i to invalid address %#hhx\n", __FUNCTION__, id, addr);
     return ARTNET_EARG;
   }
-  while(bind_index > n->nbpages) n->nbpages ++ ;
+  while(n->nbpages <= bind_index) n->nbpages ++ ;
   if (dir == ARTNET_INPUT_PORT) {
     port = &n->ports_page[bind_index].in[id].port;
     changed = n->ports_page[bind_index].in[id].port_enabled?0:1;
@@ -1642,6 +1641,7 @@ void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply) {
   memcpy(&e->longname, &reply->longname, sizeof(e->longname));
   memcpy(&e->nodereport, &reply->nodereport, sizeof(e->nodereport));
   //TODO: if node exists, need to take the bind index into account
+  while(e->numpages <= reply->bindindex) e->numpages ++ ;
   e->numbports[reply->bindindex] = bytes_to_short(reply->numbportsH, reply->numbports); //Increment port numbers
   memcpy(&(e->porttypes[reply->bindindex]), &reply->porttypes, ARTNET_MAX_PORTS);
   memcpy(&(e->goodinput[reply->bindindex]), &reply->goodinput, ARTNET_MAX_PORTS);
