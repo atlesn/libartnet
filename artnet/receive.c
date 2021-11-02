@@ -99,7 +99,7 @@ void handle_dmx(node n, artnet_packet p) {
   data_length = min(data_length, ARTNET_DMX_LENGTH);
 
   // find matching output ports$
-  for(j = 0 ; j < ARTNET_MAX_PAGES ; j++){
+  for(j = 0 ; j < n->nbpages ; j++){
     for (i = 0; i < ARTNET_MAX_PORTS; i++) {
         // if the addr matches and this port is enabled
         if (p->data.admx.universe == n->ports_page[j].out[i].port_addr &&
@@ -434,7 +434,7 @@ int handle_tod_request(node n, artnet_packet p) {
 
   // this should always be true
   if (p->data.todreq.command == 0x00) {
-    for(k = 0 ; k < ARTNET_MAX_PAGES ; k ++){
+    for(k = 0 ; k < n->nbpages ; k ++){
         for (i=0; i < limit; i++) {
         for (j=0; j < ARTNET_MAX_PORTS; j++) {
             if (n->ports_page[k].out[j].port_addr == p->data.todreq.address[i] &&
@@ -479,7 +479,7 @@ int handle_tod_control(node n, artnet_packet p) {
   if (check_callback(n, p, n->callbacks.todcontrol))
     return ARTNET_EOK;
 
-  for (j=0; j < ARTNET_MAX_PAGES; j++) {
+  for (j=0; j < n->nbpages; j++) {
     for (i=0; i < ARTNET_MAX_PORTS; i++) {
         if (n->ports_page[j].out[i].port_addr == p->data.todcontrol.address &&
             n->ports_page[j].out[i].port_enabled) {
