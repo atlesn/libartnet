@@ -179,12 +179,13 @@ typedef struct artnet_node_entry_s {
   uint8_t shortname[ARTNET_SHORT_NAME_LENGTH];  /**< The short node name */
   uint8_t longname[ARTNET_LONG_NAME_LENGTH];  /**< The long node name */
   uint8_t nodereport[ARTNET_REPORT_LENGTH];  /**< The node report */
-  int16_t numbports;        /**< The number of ports */
-  uint8_t porttypes[ARTNET_MAX_PORTS];    /**< The type of ports */
-  uint8_t goodinput[ARTNET_MAX_PORTS];
-  uint8_t goodoutput[ARTNET_MAX_PORTS];
-  uint8_t swin[ARTNET_MAX_PORTS];
-  uint8_t swout[ARTNET_MAX_PORTS];
+  uint8_t numpages;
+  int16_t numbports[ARTNET_MAX_PAGES];        /**< The number of ports */
+  uint8_t porttypes[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];    /**< The type of ports */
+  uint8_t goodinput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t goodoutput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t swin[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t swout[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
   uint8_t swvideo;
   uint8_t swmacro;
   uint8_t swremote;
@@ -199,8 +200,8 @@ typedef struct {
   char short_name[ARTNET_SHORT_NAME_LENGTH];
   char long_name[ARTNET_LONG_NAME_LENGTH];
   uint8_t subnet;
-  uint8_t in_ports[ARTNET_MAX_PORTS];
-  uint8_t out_ports[ARTNET_MAX_PORTS];
+  uint8_t in_ports[ARTNET_MAX_PORTS * ARTNET_MAX_PAGES];
+  uint8_t out_ports[ARTNET_MAX_PORTS * ARTNET_MAX_PAGES];
 } artnet_node_config_t;
 
 
@@ -257,8 +258,9 @@ EXTERN int artnet_set_rdm_tod_handler(artnet_node vn,
 EXTERN int artnet_send_poll(artnet_node n,
   const char *ip,
   artnet_ttm_value_t talk_to_me);
-EXTERN int artnet_send_poll_reply(artnet_node n);
+EXTERN int artnet_send_poll_reply(artnet_node n, int bind_index);
 EXTERN int artnet_send_dmx(artnet_node n,
+  int bind_id,
   int port_id,
   int16_t length,
   const uint8_t *data);
@@ -276,6 +278,7 @@ EXTERN int artnet_send_address(artnet_node n,
   artnet_port_command_t cmd);
 EXTERN int artnet_send_input(artnet_node n,
   artnet_node_entry e,
+  uint8_t bind_index,
   uint8_t settings[ARTNET_MAX_PORTS]);
 EXTERN int artnet_send_firmware(artnet_node vn,
   artnet_node_entry e,
@@ -310,7 +313,7 @@ EXTERN int artnet_remove_rdm_device(artnet_node vn,
   uint8_t uid[ARTNET_RDM_UID_WIDTH]);
 
 // recv functions
-EXTERN uint8_t *artnet_read_dmx(artnet_node n, int port_id, int *length);
+EXTERN uint8_t *artnet_read_dmx(artnet_node n, int bind_index, int port_id, int *length);
 
 // state changing functions
 EXTERN int artnet_set_node_type(artnet_node n, artnet_node_type type);
@@ -319,15 +322,18 @@ EXTERN int artnet_set_long_name(artnet_node n, const char *name);
 
 //port manipulation functions
 EXTERN int artnet_set_port_type(artnet_node n,
+                                int bind_index,
                                 int id,
                                 artnet_port_settings_t settings,
                                 artnet_port_data_code data);
 EXTERN int artnet_set_port_addr(artnet_node n,
+                                int bind_index,
                                 int id,
                                 artnet_port_dir_t dir,
                                 uint8_t addr);
-EXTERN int artnet_set_subnet_addr(artnet_node n, uint8_t subnet);
+EXTERN int artnet_set_subnet_addr(artnet_node n, int bind_index, uint8_t subnet);
 EXTERN int artnet_get_universe_addr(artnet_node n,
+                                    int bind_index,
                                     int id,
                                     artnet_port_dir_t dir);
 

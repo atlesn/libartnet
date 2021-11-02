@@ -21,8 +21,8 @@
 #include "private.h"
 
 uint8_t _make_addr(uint8_t subnet, uint8_t addr);
-void check_merge_timeouts(node n, int port);
-void merge(node n, int port, int length, uint8_t *latest);
+void check_merge_timeouts(node n, int bind_index, int port);
+void merge(node n, int bind_index, int port, int length, uint8_t *latest);
 
 /*
  * Checks if the callback is defined, if so call it passing the packet and
@@ -41,6 +41,7 @@ int check_callback(node n, artnet_packet p, callback_t callback) {
  * Handle an artpoll packet
  */
 int handle_poll(node n, artnet_packet p) {
+  int i;
   // run callback if defined
   if (check_callback(n, p, n->callbacks.poll))
     return ARTNET_EOK;
@@ -60,7 +61,9 @@ int handle_poll(node n, artnet_packet p) {
       n->state.send_apr_on_change = FALSE;
     }
 
-    return artnet_tx_poll_reply(n, TRUE);
+    for(i = 0; i < n->nbpages ; i ++){
+        artnet_tx_poll_reply(n, i, TRUE);
+    }
 
   }
   return ARTNET_EOK;
@@ -83,7 +86,7 @@ void handle_reply(node n, artnet_packet p) {
  * handle a art dmx packet
  */
 void handle_dmx(node n, artnet_packet p) {
-  int i, data_length;
+  int i, j, data_length;
   output_port_t *port;
   in_addr_t ipA, ipB;
 
@@ -95,136 +98,138 @@ void handle_dmx(node n, artnet_packet p) {
                                      p->data.admx.length);
   data_length = min(data_length, ARTNET_DMX_LENGTH);
 
-  // find matching output ports
-  for (i = 0; i < ARTNET_MAX_PORTS; i++) {
-    // if the addr matches and this port is enabled
-    if (p->data.admx.universe == n->ports.out[i].port_addr &&
-        n->ports.out[i].port_enabled) {
+  // find matching output ports$
+  for(j = 0 ; j < ARTNET_MAX_PAGES ; j++){
+    for (i = 0; i < ARTNET_MAX_PORTS; i++) {
+        // if the addr matches and this port is enabled
+        if (p->data.admx.universe == n->ports_page[j].out[i].port_addr &&
+            n->ports_page[j].out[i].port_enabled) {
 
-      port = &n->ports.out[i];
-      ipA = port->ipA.s_addr;
-      ipB = port->ipB.s_addr;
+        port = &n->ports_page[j].out[i];
+        ipA = port->ipA.s_addr;
+        ipB = port->ipB.s_addr;
 
-      // ok packet matches this port
-      n->ports.out[i].port_status = n->ports.out[i].port_status | PORT_STATUS_ACT_MASK;
+        // ok packet matches this port
+        n->ports_page[j].out[i].port_status = n->ports_page[j].out[i].port_status | PORT_STATUS_ACT_MASK;
 
-      /**
-       * 9 cases for merging depending on what the stored ips are.
-       * here's the truth table
-       *
-       *
-       * \   ipA   #           #            #             #
-       *  ------   #   empty   #            #             #
-       *   ipB  \  #   ( 0 )   #    p.from  #   ! p.from  #
-       * ##################################################
-       *           # new node  # continued  # start       #
-       *  empty    # first     #  trans-    #  merge      #
-       *   (0)     #   packet  #   mission  #             #
-       * ##################################################
-       *           #continued  #            # cont        #
-       *  p.from   # trans-    # invalid!   #  merge      #
-       *           #  mission  #            #             #
-       * ##################################################
-       *           # start     # cont       #             #
-       * ! p.from  #  merge    #   merge    # discard     #
-       *           #           #            #             #
-       * ##################################################
-       *
-       * The merge exits when:
-       *   o ACCancel command is received in an ArtAddress packet
-       *       (this is done in handle_address )
-       *   o no data is recv'ed from one source in 10 seconds
-       *
-       */
+        /**
+         * 9 cases for merging depending on what the stored ips are.
+         * here's the truth table
+         *
+         *
+         * \   ipA   #           #            #             #
+         *  ------   #   empty   #            #             #
+         *   ipB  \  #   ( 0 )   #    p.from  #   ! p.from  #
+         * ##################################################
+         *           # new node  # continued  # start       #
+         *  empty    # first     #  trans-    #  merge      #
+         *   (0)     #   packet  #   mission  #             #
+         * ##################################################
+         *           #continued  #            # cont        #
+         *  p.from   # trans-    # invalid!   #  merge      #
+         *           #  mission  #            #             #
+         * ##################################################
+         *           # start     # cont       #             #
+         * ! p.from  #  merge    #   merge    # discard     #
+         *           #           #            #             #
+         * ##################################################
+         *
+         * The merge exits when:
+         *   o ACCancel command is received in an ArtAddress packet
+         *       (this is done in handle_address )
+         *   o no data is recv'ed from one source in 10 seconds
+         *
+         */
 
-      check_merge_timeouts(n,i);
+        check_merge_timeouts(n, j, i);
 
-      if (ipA == 0 && ipB == 0) {
-        // first packet recv on this port
-        port->ipA.s_addr = p->from.s_addr;
-        port->timeA = time(NULL);
+        if (ipA == 0 && ipB == 0) {
+            // first packet recv on this port
+            port->ipA.s_addr = p->from.s_addr;
+            port->timeA = time(NULL);
 
-        memcpy(&port->dataA, &p->data.admx.data, data_length);
-        port->length = data_length;
-        memcpy(&port->data, &p->data.admx.data, data_length);
-      }
-      else if (ipA == p->from.s_addr && ipB == 0) {
-        //continued transmission from the same ip (source A)
+            memcpy(&port->dataA, &p->data.admx.data, data_length);
+            port->length = data_length;
+            memcpy(&port->data, &p->data.admx.data, data_length);
+        }
+        else if (ipA == p->from.s_addr && ipB == 0) {
+            //continued transmission from the same ip (source A)
 
-        port->timeA = time(NULL);
-        memcpy(&port->dataA, &p->data.admx.data, data_length);
-        port->length = data_length;
-        memcpy(&port->data, &p->data.admx.data, data_length);
-      }
-      else if (ipA == 0 && ipB == p->from.s_addr) {
-        //continued transmission from the same ip (source B)
+            port->timeA = time(NULL);
+            memcpy(&port->dataA, &p->data.admx.data, data_length);
+            port->length = data_length;
+            memcpy(&port->data, &p->data.admx.data, data_length);
+        }
+        else if (ipA == 0 && ipB == p->from.s_addr) {
+            //continued transmission from the same ip (source B)
 
-        port->timeB = time(NULL);
-        memcpy(&port->dataB, &p->data.admx.data, data_length);
-        port->length = data_length;
-        memcpy(&port->data, &p->data.admx.data, data_length);
-      }
-      else if (ipA != p->from.s_addr  && ipB == 0) {
-        // new source, start the merge
-        port->ipB.s_addr = p->from.s_addr;
-        port->timeB = time(NULL);
-        memcpy(&port->dataB, &p->data.admx.data,data_length);
-        port->length = data_length;
+            port->timeB = time(NULL);
+            memcpy(&port->dataB, &p->data.admx.data, data_length);
+            port->length = data_length;
+            memcpy(&port->data, &p->data.admx.data, data_length);
+        }
+        else if (ipA != p->from.s_addr  && ipB == 0) {
+            // new source, start the merge
+            port->ipB.s_addr = p->from.s_addr;
+            port->timeB = time(NULL);
+            memcpy(&port->dataB, &p->data.admx.data,data_length);
+            port->length = data_length;
 
-        // merge, newest data is port B
-        merge(n,i,data_length, port->dataB);
+            // merge, newest data is port B
+            merge(n, j, i, data_length, port->dataB);
 
-        // send reply if needed
+            // send reply if needed
 
-      }
-      else if (ipA == 0 && ipB == p->from.s_addr) {
-        // new source, start the merge
-        port->ipA.s_addr = p->from.s_addr;
-        port->timeB = time(NULL);
-        memcpy(&port->dataB, &p->data.admx.data,data_length);
-        port->length = data_length;
+        }
+        else if (ipA == 0 && ipB == p->from.s_addr) {
+            // new source, start the merge
+            port->ipA.s_addr = p->from.s_addr;
+            port->timeB = time(NULL);
+            memcpy(&port->dataB, &p->data.admx.data,data_length);
+            port->length = data_length;
 
-        // merge, newest data is portA
-        merge(n,i,data_length, port->dataA);
+            // merge, newest data is portA
+            merge(n, j, i,data_length, port->dataA);
 
-        // send reply if needed
-      }
-      else if (ipA == p->from.s_addr && ipB != p->from.s_addr) {
-        // continue merge
-        port->timeA = time(NULL);
-        memcpy(&port->dataA, &p->data.admx.data,data_length);
-        port->length = data_length;
+            // send reply if needed
+        }
+        else if (ipA == p->from.s_addr && ipB != p->from.s_addr) {
+            // continue merge
+            port->timeA = time(NULL);
+            memcpy(&port->dataA, &p->data.admx.data,data_length);
+            port->length = data_length;
 
-        // merge, newest data is portA
-        merge(n,i,data_length, port->dataA);
+            // merge, newest data is portA
+            merge(n, j, i,data_length, port->dataA);
 
-      }
-      else if (ipA != p->from.s_addr && ipB == p->from.s_addr) {
-        // continue merge
-        port->timeB = time(NULL);
-        memcpy(&port->dataB, &p->data.admx.data,data_length);
-        port->length = data_length;
+        }
+        else if (ipA != p->from.s_addr && ipB == p->from.s_addr) {
+            // continue merge
+            port->timeB = time(NULL);
+            memcpy(&port->dataB, &p->data.admx.data,data_length);
+            port->length = data_length;
 
-        // merge newest data is portB
-        merge(n,i,data_length, port->dataB);
+            // merge newest data is portB
+            merge(n, j, i,data_length, port->dataB);
 
-      }
-      else if (ipA == p->from.s_addr && ipB == p->from.s_addr) {
-//        err_warn("In handle_dmx, source matches both buffers, this shouldn't be happening!\n");
+        }
+        else if (ipA == p->from.s_addr && ipB == p->from.s_addr) {
+    //        err_warn("In handle_dmx, source matches both buffers, this shouldn't be happening!\n");
 
-      }
-      else if (ipA != p->from.s_addr && ipB != p->from.s_addr) {
-//        err_warn("In handle_dmx, more than two sources, discarding data\n");
+        }
+        else if (ipA != p->from.s_addr && ipB != p->from.s_addr) {
+    //        err_warn("In handle_dmx, more than two sources, discarding data\n");
 
-      }
-      else {
-//        err_warn("In handle_dmx, no cases matched, this shouldn't happen!\n");
+        }
+        else {
+    //        err_warn("In handle_dmx, no cases matched, this shouldn't happen!\n");
 
-      }
+        }
 
-      // do the dmx callback here
-      if (n->callbacks.dmx_c.fh != NULL)
-        n->callbacks.dmx_c.fh(n,i, n->callbacks.dmx_c.data);
+        // do the dmx callback here
+        if (n->callbacks.dmx_c.fh != NULL)
+            n->callbacks.dmx_c.fh(n,i, n->callbacks.dmx_c.data);
+        }
     }
   }
   return;
@@ -265,7 +270,7 @@ int handle_address(node n, artnet_packet p) {
   // first of all store existing port addresses
   // then we can work out if they change
   for (i=0; i< ARTNET_MAX_PORTS; i++) {
-    addr[i] = n->ports.in[i].port_addr;
+    addr[i] = n->ports_page[p->data.addr.bindindex].in[i].port_addr;
   }
 
   // program subnet
@@ -284,8 +289,8 @@ int handle_address(node n, artnet_packet p) {
   if (old_subnet != n->state.subnet) {
     // if it does we need to change all port addresses
     for(i=0; i< ARTNET_MAX_PORTS; i++) {
-      n->ports.in[i].port_addr = _make_addr(n->state.subnet, n->ports.in[i].port_addr);
-      n->ports.out[i].port_addr = _make_addr(n->state.subnet, n->ports.out[i].port_addr);
+      n->ports_page[p->data.addr.bindindex].in[i].port_addr = _make_addr(n->state.subnet, n->ports_page[p->data.addr.bindindex].in[i].port_addr);
+      n->ports_page[p->data.addr.bindindex].out[i].port_addr = _make_addr(n->state.subnet, n->ports_page[p->data.addr.bindindex].out[i].port_addr);
     }
   }
 
@@ -295,12 +300,12 @@ int handle_address(node n, artnet_packet p) {
       continue;
     } else if (p->data.addr.swin[i] == PROGRAM_DEFAULTS) {
       // reset to defaults
-      n->ports.in[i].port_addr = _make_addr(n->state.subnet, n->ports.in[i].port_default_addr);
-      n->ports.in[i].port_net_ctl = FALSE;
+      n->ports_page[p->data.addr.bindindex].in[i].port_addr = _make_addr(n->state.subnet, n->ports_page[p->data.addr.bindindex].in[i].port_default_addr);
+      n->ports_page[p->data.addr.bindindex].in[i].port_net_ctl = FALSE;
 
     } else if ( p->data.addr.swin[i] & PROGRAM_CHANGE_MASK) {
-      n->ports.in[i].port_addr = _make_addr(n->state.subnet, p->data.addr.swin[i]);
-      n->ports.in[i].port_net_ctl = TRUE;
+      n->ports_page[p->data.addr.bindindex].in[i].port_addr = _make_addr(n->state.subnet, p->data.addr.swin[i]);
+      n->ports_page[p->data.addr.bindindex].in[i].port_net_ctl = TRUE;
     }
   }
 
@@ -310,20 +315,20 @@ int handle_address(node n, artnet_packet p) {
       continue;
     } else if (p->data.addr.swout[i] == PROGRAM_DEFAULTS) {
       // reset to defaults
-      n->ports.out[i].port_addr = _make_addr(n->state.subnet, n->ports.out[i].port_default_addr);
-      n->ports.out[i].port_net_ctl = FALSE;
-      n->ports.out[i].port_enabled = TRUE;
+      n->ports_page[p->data.addr.bindindex].out[i].port_addr = _make_addr(n->state.subnet, n->ports_page[p->data.addr.bindindex].out[i].port_default_addr);
+      n->ports_page[p->data.addr.bindindex].out[i].port_net_ctl = FALSE;
+      n->ports_page[p->data.addr.bindindex].out[i].port_enabled = TRUE;
     } else if ( p->data.addr.swout[i] & PROGRAM_CHANGE_MASK) {
-      n->ports.out[i].port_addr = _make_addr(n->state.subnet, p->data.addr.swout[i]);
-      n->ports.in[i].port_net_ctl = TRUE;
-      n->ports.out[i].port_enabled = TRUE;
+      n->ports_page[p->data.addr.bindindex].out[i].port_addr = _make_addr(n->state.subnet, p->data.addr.swout[i]);
+      n->ports_page[p->data.addr.bindindex].in[i].port_net_ctl = TRUE;
+      n->ports_page[p->data.addr.bindindex].out[i].port_enabled = TRUE;
     }
   }
 
   // reset sequence numbers if the addresses change
   for (i=0; i< ARTNET_MAX_PORTS; i++) {
-    if (addr[i] != n->ports.in[i].port_addr)
-      n->ports.in[i].seq = 0;
+    if (addr[i] != n->ports_page[p->data.addr.bindindex].in[i].port_addr)
+      n->ports_page[p->data.addr.bindindex].in[i].seq = 0;
   }
 
   // check command
@@ -332,40 +337,40 @@ int handle_address(node n, artnet_packet p) {
       // fix me
       break;
     case ARTNET_PC_RESET:
-      n->ports.out[0].port_status = n->ports.out[0].port_status & ~PORT_STATUS_DMX_SIP & ~PORT_STATUS_DMX_TEST & ~PORT_STATUS_DMX_TEXT;
+      n->ports_page[p->data.addr.bindindex].out[0].port_status = n->ports_page[p->data.addr.bindindex].out[0].port_status & ~PORT_STATUS_DMX_SIP & ~PORT_STATUS_DMX_TEST & ~PORT_STATUS_DMX_TEXT;
       // need to force a rerun of short tests here
       break;
     case ARTNET_PC_MERGE_LTP_O:
-      n->ports.out[0].merge_mode = ARTNET_MERGE_LTP;
-      n->ports.out[0].port_status = n->ports.out[0].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[0].merge_mode = ARTNET_MERGE_LTP;
+      n->ports_page[p->data.addr.bindindex].out[0].port_status = n->ports_page[p->data.addr.bindindex].out[0].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_LTP_1:
-      n->ports.out[1].merge_mode = ARTNET_MERGE_LTP;
-      n->ports.out[1].port_status = n->ports.out[1].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[1].merge_mode = ARTNET_MERGE_LTP;
+      n->ports_page[p->data.addr.bindindex].out[1].port_status = n->ports_page[p->data.addr.bindindex].out[1].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_LTP_2:
-      n->ports.out[2].merge_mode = ARTNET_MERGE_LTP;
-      n->ports.out[2].port_status = n->ports.out[2].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[2].merge_mode = ARTNET_MERGE_LTP;
+      n->ports_page[p->data.addr.bindindex].out[2].port_status = n->ports_page[p->data.addr.bindindex].out[2].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_LTP_3:
-      n->ports.out[3].merge_mode = ARTNET_MERGE_LTP;
-      n->ports.out[3].port_status = n->ports.out[3].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[3].merge_mode = ARTNET_MERGE_LTP;
+      n->ports_page[p->data.addr.bindindex].out[3].port_status = n->ports_page[p->data.addr.bindindex].out[3].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_HTP_0:
-      n->ports.out[0].merge_mode = ARTNET_MERGE_HTP;
-      n->ports.out[0].port_status = n->ports.out[0].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[0].merge_mode = ARTNET_MERGE_HTP;
+      n->ports_page[p->data.addr.bindindex].out[0].port_status = n->ports_page[p->data.addr.bindindex].out[0].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_HTP_1:
-      n->ports.out[1].merge_mode = ARTNET_MERGE_HTP;
-      n->ports.out[1].port_status = n->ports.out[1].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[1].merge_mode = ARTNET_MERGE_HTP;
+      n->ports_page[p->data.addr.bindindex].out[1].port_status = n->ports_page[p->data.addr.bindindex].out[1].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_HTP_2:
-      n->ports.out[2].merge_mode = ARTNET_MERGE_HTP;
-      n->ports.out[2].port_status = n->ports.out[2].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[2].merge_mode = ARTNET_MERGE_HTP;
+      n->ports_page[p->data.addr.bindindex].out[2].port_status = n->ports_page[p->data.addr.bindindex].out[2].port_status | PORT_STATUS_LPT_MODE;
       break;
     case ARTNET_PC_MERGE_HTP_3:
-      n->ports.out[3].merge_mode = ARTNET_MERGE_HTP;
-      n->ports.out[3].port_status = n->ports.out[3].port_status | PORT_STATUS_LPT_MODE;
+      n->ports_page[p->data.addr.bindindex].out[3].merge_mode = ARTNET_MERGE_HTP;
+      n->ports_page[p->data.addr.bindindex].out[3].port_status = n->ports_page[p->data.addr.bindindex].out[3].port_status | PORT_STATUS_LPT_MODE;
       break;
 
   }
@@ -376,7 +381,7 @@ int handle_address(node n, artnet_packet p) {
   if ((ret = artnet_tx_build_art_poll_reply(n)))
     return ret;
 
-  return artnet_tx_poll_reply(n, TRUE);
+  return artnet_tx_poll_reply(n, p->data.addr.bindindex, TRUE);
 }
 
 
@@ -393,22 +398,21 @@ int _artnet_handle_input(node n, artnet_packet p) {
   // servers (and raw nodes) don't respond to input packets
   if (n->state.node_type != ARTNET_NODE && n->state.node_type != ARTNET_MSRV)
     return ARTNET_EOK;
-
   ports = min( p->data.ainput.numbports, ARTNET_MAX_PORTS);
   for (i =0; i < ports; i++) {
     if (p->data.ainput.input[i] & PORT_DISABLE_MASK) {
       // disable
-      n->ports.in[i].port_status = n->ports.in[i].port_status | PORT_STATUS_DISABLED_MASK;
+      n->ports_page[p->data.ainput.bindindex].in[i].port_status = n->ports_page[p->data.ainput.bindindex].in[i].port_status | PORT_STATUS_DISABLED_MASK;
     } else {
       // enable
-      n->ports.in[i].port_status = n->ports.in[i].port_status & ~PORT_STATUS_DISABLED_MASK;
+      n->ports_page[p->data.ainput.bindindex].in[i].port_status = n->ports_page[p->data.ainput.bindindex].in[i].port_status & ~PORT_STATUS_DISABLED_MASK;
     }
   }
 
   if ((ret = artnet_tx_build_art_poll_reply(n)))
     return ret;
 
-  return artnet_tx_poll_reply(n, TRUE);
+  return artnet_tx_poll_reply(n, p->data.ainput.bindindex, TRUE);
 }
 
 
@@ -416,7 +420,7 @@ int _artnet_handle_input(node n, artnet_packet p) {
  * handle tod request packet
  */
 int handle_tod_request(node n, artnet_packet p) {
-  int i, j, limit;
+  int i, j, k, limit;
   int ret = ARTNET_EOK;
 
   if (check_callback(n, p, n->callbacks.todrequest))
@@ -430,14 +434,16 @@ int handle_tod_request(node n, artnet_packet p) {
 
   // this should always be true
   if (p->data.todreq.command == 0x00) {
-    for (i=0; i < limit; i++) {
-      for (j=0; j < ARTNET_MAX_PORTS; j++) {
-        if (n->ports.out[j].port_addr == p->data.todreq.address[i] &&
-            n->ports.out[j].port_enabled) {
-          // reply with tod
-          ret = ret || artnet_tx_tod_data(n, j);
+    for(k = 0 ; k < ARTNET_MAX_PAGES ; k ++){
+        for (i=0; i < limit; i++) {
+        for (j=0; j < ARTNET_MAX_PORTS; j++) {
+            if (n->ports_page[k].out[j].port_addr == p->data.todreq.address[i] &&
+                n->ports_page[k].out[j].port_enabled) {
+            // reply with tod
+            ret = ret || artnet_tx_tod_data(n, k, j);
+            }
         }
-      }
+        }
     }
   }
 
@@ -467,33 +473,35 @@ void handle_tod_data(node n, artnet_packet p) {
 
 
 int handle_tod_control(node n, artnet_packet p) {
-  int i;
+  int i, j;
   int ret = ARTNET_EOK;
 
   if (check_callback(n, p, n->callbacks.todcontrol))
     return ARTNET_EOK;
 
-  for (i=0; i < ARTNET_MAX_PORTS; i++) {
-    if (n->ports.out[i].port_addr == p->data.todcontrol.address &&
-        n->ports.out[i].port_enabled) {
+  for (j=0; j < ARTNET_MAX_PAGES; j++) {
+    for (i=0; i < ARTNET_MAX_PORTS; i++) {
+        if (n->ports_page[j].out[i].port_addr == p->data.todcontrol.address &&
+            n->ports_page[j].out[i].port_enabled) {
 
-      if (p->data.todcontrol.cmd == ARTNET_TOD_FLUSH) {
-        // flush tod for this port
-        flush_tod(&n->ports.out[i].port_tod);
+        if (p->data.todcontrol.cmd == ARTNET_TOD_FLUSH) {
+            // flush tod for this port
+            flush_tod(&n->ports_page[j].out[i].port_tod);
 
-        //initiate full rdm discovery
-        // do callback here
-        if (n->callbacks.rdm_init_c.fh != NULL)
-          n->callbacks.rdm_init_c.fh(n, i, n->callbacks.rdm_init_c.data);
+            //initiate full rdm discovery
+            // do callback here
+            if (n->callbacks.rdm_init_c.fh != NULL)
+            n->callbacks.rdm_init_c.fh(n, i, n->callbacks.rdm_init_c.data);
 
-        // not really sure what to do here, the calling app should do a rdm
-        // init and call artnet_add_rdm_devices() which will send a tod data
-        // but do we really trust the caller ?
-        // Instead we'll send an empty tod data and then another one a bit later
-        // when our tod is populated
-      }
-      // reply with tod
-      ret = ret || artnet_tx_tod_data(n, i);
+            // not really sure what to do here, the calling app should do a rdm
+            // init and call artnet_add_rdm_devices() which will send a tod data
+            // but do we really trust the caller ?
+            // Instead we'll send an empty tod data and then another one a bit later
+            // when our tod is populated
+        }
+        // reply with tod
+        ret = ret || artnet_tx_tod_data(n,j, i);
+        }
     }
   }
   return ret;
@@ -864,11 +872,11 @@ uint8_t _make_addr(uint8_t subnet, uint8_t addr) {
 /*
  *
  */
-void check_merge_timeouts(node n, int port_id) {
+void check_merge_timeouts(node n, int bind_index, int port_id) {
   output_port_t *port;
   time_t now;
   time_t timeoutA, timeoutB;
-  port = &n->ports.out[port_id];
+  port = &n->ports_page[bind_index].out[port_id];
   time(&now);
   timeoutA = now - port->timeA;
   timeoutB = now - port->timeB;
@@ -888,10 +896,10 @@ void check_merge_timeouts(node n, int port_id) {
 /*
  * merge the data from two sources
  */
-void merge(node n, int port_id, int length, uint8_t *latest) {
+void merge(node n, int bind_index, int port_id, int length, uint8_t *latest) {
   int i;
   output_port_t *port;
-  port = &n->ports.out[port_id];
+  port = &n->ports_page[bind_index].out[port_id];
 
   if (port->merge_mode == ARTNET_MERGE_HTP) {
     for (i=0; i< length; i++)

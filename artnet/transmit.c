@@ -65,40 +65,57 @@ int artnet_tx_poll(node n, const char *ip, artnet_ttm_value_t ttm) {
  * @param response true if this reply is in response to a network packet
  *            false if this reply is due to the node changing it's conditions
  */
-int artnet_tx_poll_reply(node n, int response) {
-  artnet_packet_t reply;
-  int i;
+int artnet_tx_poll_reply(node n, int bind_index, int response) {
+    artnet_packet_t reply;
+    int i;
 
-  if (!response && n->state.mode == ARTNET_ON) {
+    if (!response && n->state.mode == ARTNET_ON) {
     n->state.ar_count++;
-  }
+    }
+    reply.to = n->state.reply_addr;
+    reply.type = ARTNET_REPLY;
+    reply.length = sizeof(artnet_reply_t);
 
-  reply.to = n->state.reply_addr;
-  reply.type = ARTNET_REPLY;
-  reply.length = sizeof(artnet_reply_t);
+    // copy from a poll reply template
+    memcpy(&reply.data, &n->ar_temp, sizeof(artnet_reply_t));
 
-  // copy from a poll reply template
-  memcpy(&reply.data, &n->ar_temp, sizeof(artnet_reply_t));
+    // port stuff here
+    reply.data.ar.numbportsH = 0;
 
-  for (i=0; i< ARTNET_MAX_PORTS; i++) {
-    reply.data.ar.goodinput[i] = n->ports.in[i].port_status;
-    reply.data.ar.goodoutput[i] = n->ports.out[i].port_status;
-  }
+    for (i = ARTNET_MAX_PORTS; i > 0; i--) {
+    if (n->ports_page[bind_index].out[i-1].port_enabled || n->ports_page[bind_index].in[i-1].port_enabled)
+        break;
+    }
 
-  snprintf((char *) &reply.data.ar.nodereport,
-           sizeof(reply.data.ar.nodereport),
-           "%04x [%04i] libartnet",
-           n->state.report_code,
-           n->state.ar_count);
+    reply.data.ar.numbports = i;
 
-  return artnet_net_send(n, &reply);
+    for (i=0; i< ARTNET_MAX_PORTS; i++) {
+        reply.data.ar.porttypes[i] = n->ports_page[bind_index].types[i];
+        reply.data.ar.goodinput[i] = n->ports_page[bind_index].in[i].port_status;
+        reply.data.ar.goodoutput[i] = n->ports_page[bind_index].out[i].port_status;
+        reply.data.ar.swin[i] = n->ports_page[bind_index].in[i].port_addr;
+        reply.data.ar.swout[i] = n->ports_page[bind_index].out[i].port_addr;
+    }
+
+
+    for (i=0; i< ARTNET_MAX_PORTS; i++) {
+        reply.data.ar.goodinput[i] = n->ports_page[bind_index].in[i].port_status;
+        reply.data.ar.goodoutput[i] = n->ports_page[bind_index].out[i].port_status;
+    }
+
+    snprintf((char *) &reply.data.ar.nodereport,
+            sizeof(reply.data.ar.nodereport),
+            "%04x [%04i] libartnet",
+            n->state.report_code,
+            n->state.ar_count);
+    return artnet_net_send(n, &reply) ;
 }
 
 
 /*
  * Send a tod request
  */
-int artnet_tx_tod_request(node n) {
+int artnet_tx_tod_request(node n, int bind_index) {
   int i;
   artnet_packet_t todreq;
 
@@ -117,8 +134,8 @@ int artnet_tx_tod_request(node n) {
 
   // include all enabled ports
   for (i=0; i < ARTNET_MAX_PORTS; i++) {
-    if (n->ports.out[i].port_enabled) {
-      todreq.data.todreq.address[todreq.data.todreq.adCount++] = n->ports.out[i].port_addr;
+    if (n->ports_page[bind_index].out[i].port_enabled) {
+      todreq.data.todreq.address[todreq.data.todreq.adCount++] = n->ports_page[bind_index].out[i].port_addr;
     }
   }
 
@@ -130,7 +147,7 @@ int artnet_tx_tod_request(node n) {
  * Send a tod data for port number id
  * @param id the number of the port to send data for
  */
-int artnet_tx_tod_data(node n, int id) {
+int artnet_tx_tod_data(node n, int bind_index, int id) {
   artnet_packet_t tod;
   int lim, remaining, bloc, offset;
   int ret = ARTNET_EOK;
@@ -155,23 +172,23 @@ int artnet_tx_tod_data(node n, int id) {
   // codes aren't given. The windows drivers don't have these either....
   tod.data.toddata.cmdRes = ARTNET_TOD_FULL;
 
-  tod.data.toddata.address = n->ports.out[id].port_addr;
-  tod.data.toddata.uidTotalHi = short_get_high_byte(n->ports.out[id].port_tod.length);
-  tod.data.toddata.uidTotal = short_get_low_byte(n->ports.out[id].port_tod.length);
+  tod.data.toddata.address = n->ports_page[bind_index].out[id].port_addr;
+  tod.data.toddata.uidTotalHi = short_get_high_byte(n->ports_page[bind_index].out[id].port_tod.length);
+  tod.data.toddata.uidTotal = short_get_low_byte(n->ports_page[bind_index].out[id].port_tod.length);
 
-  remaining = n->ports.out[id].port_tod.length;
+  remaining = n->ports_page[bind_index].out[id].port_tod.length;
   bloc = 0;
 
   while (remaining > 0) {
-    memset(&tod.data.toddata.tod,0x00, ARTNET_MAX_UID_COUNT);
+    memset(&tod.data.toddata.tod,0x00, ARTNET_MAX_UID_COUNT * sizeof(tod.data.toddata.tod[0]));
     lim = min(ARTNET_MAX_UID_COUNT, remaining);
     tod.data.toddata.blockCount = bloc++;
     tod.data.toddata.uidCount = lim;
 
-    offset = (n->ports.out[id].port_tod.length - remaining) * ARTNET_RDM_UID_WIDTH;
-    if (n->ports.out[id].port_tod.data != NULL)
+    offset = (n->ports_page[bind_index].out[id].port_tod.length - remaining) * ARTNET_RDM_UID_WIDTH;
+    if (n->ports_page[bind_index].out[id].port_tod.data != NULL)
       memcpy(tod.data.toddata.tod,
-             n->ports.out[id].port_tod.data + offset,
+             n->ports_page[bind_index].out[id].port_tod.data + offset,
              lim * ARTNET_RDM_UID_WIDTH);
 
     ret = ret || artnet_net_send(n, &tod);
@@ -355,7 +372,6 @@ int artnet_tx_firmware_packet(node n, firmware_transfer_t *firm) {
 // this is called when the node's state changes to rebuild the
 // artpollreply packet
 int artnet_tx_build_art_poll_reply(node n) {
-  int i;
 
   // shorten the amount we have to type
   artnet_reply_t *ar = &n->ar_temp;
@@ -391,22 +407,23 @@ int artnet_tx_build_art_poll_reply(node n) {
   // the report is generated on every send
 
   // port stuff here
-  ar->numbportsH = 0;
+  // removed since the template cannot match all bind indexes
+  /*ar->numbportsH = 0;
 
   for (i = ARTNET_MAX_PORTS; i > 0; i--) {
-    if (n->ports.out[i-1].port_enabled || n->ports.in[i-1].port_enabled)
+    if (n->ports_page[bind_index].out[i-1].port_enabled || n->ports_page[bind_index].in[i-1].port_enabled)
       break;
   }
 
   ar->numbports = i;
 
   for (i=0; i< ARTNET_MAX_PORTS; i++) {
-    ar->porttypes[i] = n->ports.types[i];
-    ar->goodinput[i] = n->ports.in[i].port_status;
-    ar->goodoutput[i] = n->ports.out[i].port_status;
-    ar->swin[i] = n->ports.in[i].port_addr;
-    ar->swout[i] = n->ports.out[i].port_addr;
-  }
+    ar->porttypes[i] = n->ports_page[bind_index].types[i];
+    ar->goodinput[i] = n->ports_page[bind_index].in[i].port_status;
+    ar->goodoutput[i] = n->ports_page[bind_index].out[i].port_status;
+    ar->swin[i] = n->ports_page[bind_index].in[i].port_addr;
+    ar->swout[i] = n->ports_page[bind_index].out[i].port_addr;
+  }*/
 
   ar->swvideo  = 0;
   ar->swmacro = 0;

@@ -441,6 +441,15 @@ typedef struct {
 } node_peering_t;
 
 
+
+typedef struct artnet_ports_s {
+    uint8_t  types[ARTNET_MAX_PORTS];    // type of port
+    input_port_t in[ARTNET_MAX_PORTS];   // input ports
+    output_port_t out[ARTNET_MAX_PORTS]; // output ports
+} artnet_ports_t;
+
+typedef artnet_ports_t *port;
+
 /**
  * The main node structure
  */
@@ -448,11 +457,8 @@ typedef struct artnet_node_s{
   artnet_socket_t sd;      // the two sockets
   node_state_t state;      // the state struct
   node_callbacks_t callbacks;  // the callbacks struct
-  struct ports_s {
-    uint8_t  types[ARTNET_MAX_PORTS];    // type of port
-    input_port_t in[ARTNET_MAX_PORTS];   // input ports
-    output_port_t out[ARTNET_MAX_PORTS]; // output ports
-  } ports;
+  uint8_t nbpages ;
+  artnet_ports_t ports_page [ARTNET_MAX_PAGES] ; 
   artnet_reply_t ar_temp;       // buffered artpoll reply packet
   node_list_t node_list;        // node list
   firmware_transfer_t firmware; // firmware details
@@ -481,11 +487,11 @@ void reset_firmware_upload(node n);
 
 // exported from transmit.c
 int artnet_tx_poll(node n, const char *ip,  artnet_ttm_value_t ttm);
-int artnet_tx_poll_reply(node n, int reply);
-int artnet_tx_tod_data(node n, int id);
+int artnet_tx_poll_reply(node n, int bind_index, int reply);
+int artnet_tx_tod_data(node n, int bind_index, int id);
 int artnet_tx_firmware_reply(node n, in_addr_t ip, artnet_firmware_status_code code);
 int artnet_tx_firmware_packet(node n, firmware_transfer_t *firm );
-int artnet_tx_tod_request(node n);
+int artnet_tx_tod_request(node n, int bind_index);
 int artnet_tx_tod_control(node n, uint8_t address, artnet_tod_command_code action);
 int artnet_tx_rdm(node n, uint8_t address, uint8_t *data, int length);
 int artnet_tx_build_art_poll_reply(node n);

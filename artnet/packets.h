@@ -121,7 +121,12 @@ struct artnet_reply_s {
   uint8_t  sp3;
   uint8_t  style;
   uint8_t  mac[ARTNET_MAC_SIZE];
-  uint8_t  filler[32];
+  uint8_t  bindip[ARTNET_IP_SIZE];
+  uint8_t  bindindex ;
+  uint8_t  status2 ;
+  uint8_t  goodoutputb [ARTNET_MAX_PORTS];
+  uint8_t  status3 ;
+  uint8_t  filler[21];
 } PACKED;
 
 typedef struct artnet_reply_s artnet_reply_t;
@@ -195,8 +200,8 @@ struct artnet_address_s {
   uint16_t opCode;
   uint8_t  verH;
   uint8_t  ver;
-  uint8_t  filler1;
-  uint8_t  filler2;
+  uint8_t  netswitch;
+  uint8_t  bindindex;
   uint8_t  shortname[ARTNET_SHORT_NAME_LENGTH];
   uint8_t  longname[ARTNET_LONG_NAME_LENGTH];
   uint8_t  swin[ARTNET_MAX_PORTS];
@@ -231,7 +236,7 @@ struct artnet_input_s {
   uint8_t  verH;
   uint8_t  ver;
   uint8_t  filler1;
-  uint8_t  filler2;
+  uint8_t  bindindex;
   uint8_t  numbportsH;
   uint8_t  numbports;
   uint8_t  input[ARTNET_MAX_PORTS];
@@ -277,8 +282,8 @@ struct artnet_toddata_s {
   uint8_t  spare4;
   uint8_t  spare5;
   uint8_t  spare6;
-  uint8_t  spare7;
-  uint8_t  spare8;
+  uint8_t  bindindex;
+  uint8_t  net;
   uint8_t  cmdRes;
   uint8_t  address;
   uint8_t  uidTotalHi;
