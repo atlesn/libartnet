@@ -251,6 +251,7 @@ typedef struct {
   callback_t recv;
   callback_t send;
   callback_t poll;
+  callback_t sync;
   callback_t reply;
   callback_t dmx;
   callback_t address;
@@ -487,6 +488,7 @@ void reset_firmware_upload(node n);
 
 // exported from transmit.c
 int artnet_tx_poll(node n, const char *ip,  artnet_ttm_value_t ttm);
+int artnet_tx_sync(node n, const char *ip);
 int artnet_tx_poll_reply(node n, int bind_index, int reply);
 int artnet_tx_tod_data(node n, int bind_index, int id);
 int artnet_tx_firmware_reply(node n, in_addr_t ip, artnet_firmware_status_code code);

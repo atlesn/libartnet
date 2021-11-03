@@ -111,6 +111,42 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
     return artnet_net_send(n, &reply) ;
 }
 
+/*
+ * Send an art sync
+ *
+ * @param ip the ip address to send to
+ */
+int artnet_tx_sync(node n, const char *ip) {
+  artnet_packet_t p;
+  int ret;
+
+  if (n->state.mode != ARTNET_ON)
+    return ARTNET_EACTION;
+
+  if (n->state.node_type == ARTNET_SRV || n->state.node_type == ARTNET_RAW) {
+    if (ip) {
+      ret = artnet_net_inet_aton(ip, &p.to);
+      if (ret)
+        return ret;
+    } else {
+      p.to.s_addr = n->state.bcast_addr.s_addr;
+    }
+
+    memcpy(&p.data.sy.id, ARTNET_STRING, ARTNET_STRING_SIZE);
+    p.data.sy.opCode = htols(ARTNET_SYNC);
+    p.data.sy.verH = 0;
+    p.data.sy.ver = ARTNET_VERSION;
+    p.data.sy.aux1 = 0;
+    p.data.sy.aux2 = 0;
+
+    p.length = sizeof(artnet_sync_t);
+    return artnet_net_send(n, &p);
+
+  } else {
+    artnet_error("Not sending poll, not a server or raw device");
+    return ARTNET_EACTION;
+  }
+}
 
 /*
  * Send a tod request

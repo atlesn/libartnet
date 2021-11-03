@@ -56,6 +56,7 @@ enum artnet_packet_type_e {
   ARTNET_POLL = 0x2000,
   ARTNET_REPLY = 0x2100,
   ARTNET_DMX = 0x5000,
+  ARTNET_SYNC = 0x5200,
   ARTNET_ADDRESS = 0x6000,
   ARTNET_INPUT = 0x7000,
   ARTNET_TODREQUEST = 0x8000,
@@ -88,6 +89,17 @@ struct	artnet_poll_s {
 } PACKED;
 
 typedef struct artnet_poll_s artnet_poll_t;
+
+struct	artnet_sync_s {
+  uint8_t  id[8];
+  uint16_t opCode;//0x5200
+  uint8_t  verH;
+  uint8_t  ver;
+  uint8_t  aux1;
+  uint8_t  aux2;
+} PACKED;
+
+typedef struct artnet_sync_s artnet_sync_t;
 
 struct artnet_reply_s {
   uint8_t  id[8];
@@ -377,6 +389,7 @@ typedef struct artnet_firmware_reply_s artnet_firmware_reply_t;
 // union of all artnet packets
 typedef union {
   artnet_poll_t ap;
+  artnet_sync_t sy;
   artnet_reply_t ar;
   artnet_ipprog_t aip;
   artnet_address_t addr;

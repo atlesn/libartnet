@@ -70,6 +70,17 @@ int handle_poll(node n, artnet_packet p) {
 }
 
 /*
+ * Handle an artsync packet
+ */
+int handle_sync(node n, artnet_packet p) {
+  // run callback if defined
+  if (check_callback(n, p, n->callbacks.sync)){
+    return ARTNET_EOK;
+  }
+  return ARTNET_EACTION;
+}
+
+/*
  * handle an art poll reply
  */
 void handle_reply(node n, artnet_packet p) {
@@ -773,6 +784,9 @@ int handle(node n, artnet_packet p) {
   switch (p->type) {
     case ARTNET_POLL:
       handle_poll(n, p);
+      break;
+    case ARTNET_SYNC:
+      handle_sync(n, p);
       break;
     case ARTNET_REPLY:
       handle_reply(n,p);
