@@ -1191,19 +1191,14 @@ int artnet_set_subnet_addr(artnet_node vn, uint8_t subnet) {
 }
 
 /**
- * Sets the artnet subnet address for this node.
- * The subnet address has nothing to do with IP addresses). An ArtNet subnet is a grouping of 16 DMX universes
- * (ie. ports)
- *
- * The subnet address is between 0 and 15. If the supplied address is larger than 15, the
- * lower 4 bits will be used in setting the address.
+ * Sets the artnet net address for this node.
  *
  * It will have no effect if the node is under network control.
  *
- * Note that changing the subnet address will cause the universe addresses of all ports to change.
+ * Note that changing the net address will cause the universe addresses of all ports to change.
  *
  * @param vn the artnet_node
- * @param subnet new subnet address
+ * @param net new net address
  */
 int artnet_set_net_addr(artnet_node vn, uint8_t net) {
   node n = (node) vn;
