@@ -331,7 +331,8 @@ EXTERN int artnet_set_port_addr(artnet_node n,
                                 int bind_index,
                                 int id,
                                 artnet_port_dir_t dir,
-                                uint8_t addr);
+                                uint8_t addr,
+                                uint8_t has_subnet);
 EXTERN int artnet_set_subnet_addr(artnet_node n, uint8_t subnet);
 EXTERN int artnet_get_universe_addr(artnet_node n,
                                     int bind_index,

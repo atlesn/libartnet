@@ -1190,6 +1190,61 @@ int artnet_set_subnet_addr(artnet_node vn, uint8_t subnet) {
   return ARTNET_EOK;
 }
 
+/**
+ * Sets the artnet subnet address for this node.
+ * The subnet address has nothing to do with IP addresses). An ArtNet subnet is a grouping of 16 DMX universes
+ * (ie. ports)
+ *
+ * The subnet address is between 0 and 15. If the supplied address is larger than 15, the
+ * lower 4 bits will be used in setting the address.
+ *
+ * It will have no effect if the node is under network control.
+ *
+ * Note that changing the subnet address will cause the universe addresses of all ports to change.
+ *
+ * @param vn the artnet_node
+ * @param subnet new subnet address
+ */
+int artnet_set_net_addr(artnet_node vn, uint8_t net) {
+  node n = (node) vn;
+  int i, j, ret;
+
+  check_nullnode(vn);
+
+  n->state.default_net = net;
+
+  // if not under network control, and the subnet is different from the current one
+  if (!n->state.subnet_net_ctl && net != n->state.net) {
+    n->state.net = net;
+
+    // redo the addresses for each port
+    for(j = 0; j < n->nbpages ; j ++){
+        for (i =0; i < ARTNET_MAX_PORTS; i++) {
+        n->ports_page[j].in[i].port_addr = ((n->state.net & 0x7F) << 8) | ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[j].in[i].port_addr & LOW_NIBBLE);
+        // reset dmx sequence number
+        n->ports_page[j].in[i].seq = 0;
+
+        n->ports_page[j].out[i].port_addr = ((n->state.net & 0x7F) << 8) | ((n->state.subnet & LOW_NIBBLE) << 4) | (n->ports_page[j].out[i].port_addr & LOW_NIBBLE);
+        }
+
+        if (n->state.mode == ARTNET_ON) {
+
+            if ((ret = artnet_tx_build_art_poll_reply(n)))
+                return ret;
+
+            if((ret = artnet_tx_poll_reply(n, j, FALSE)) != ARTNET_EOK){
+                return ret ;
+            }
+        }
+    }
+  } else if (n->state.subnet_net_ctl ) {
+    //  trying to change subnet addr while under network control
+    n->state.report_code = ARTNET_RCUSERFAIL;
+  }
+
+  return ARTNET_EOK;
+}
+
 
 /**
  * Sets the short name of the node.
@@ -1279,12 +1334,14 @@ int artnet_set_port_type(artnet_node vn,
  * @param id the phyiscal port number (from 0 to ARTNET_MAX_PORTS-1 )
  * @param dir either ARTNET_INPUT_PORT or ARTNET_OUTPUT_PORT
  * @param addr the new port address
+ * @param has_subnet indicates that the new port address defines the subnet
  */
 int artnet_set_port_addr(artnet_node vn,
                          int bind_index,
                          int id,
                          artnet_port_dir_t dir,
-                         uint8_t addr) {
+                         uint8_t addr,
+                         uint8_t has_subnet) {
   node n = (node) vn;
   int ret;
   int changed = 0;
@@ -1302,10 +1359,11 @@ int artnet_set_port_addr(artnet_node vn,
     artnet_error("%s : bind index out of bounds (%i < 0 || %i > ARTNET_MAX_PAGES)", __FUNCTION__, bind_index);
     return ARTNET_EARG;
   }
-
-  if (addr > 255) {
-    artnet_error("%s : Attempt to set port %i to invalid address %#hhx\n", __FUNCTION__, id, addr);
-    return ARTNET_EARG;
+  if(has_subnet == 0){
+     if ( addr > 15 ) {
+        artnet_error("%s : Attempt to set port %i to invalid address %#hhx\n", __FUNCTION__, id, addr);
+        return ARTNET_EARG;
+    } 
   }
   while(n->nbpages <= bind_index) n->nbpages ++ ;
   if (dir == ARTNET_INPUT_PORT) {
@@ -1321,13 +1379,17 @@ int artnet_set_port_addr(artnet_node vn,
     return ARTNET_EARG;
   }
 
-  port->default_addr = addr;
+  port->default_addr = (n->state.net & 0x7F) << 8 | addr ;
 
   // if not under network control and address is changing
   if (!port->net_ctl &&
-      (changed || (addr & LOW_NIBBLE) != (port->addr & LOW_NIBBLE))) {
-    port->addr = ((n->state.subnet & LOW_NIBBLE) << 4) | (addr & LOW_NIBBLE);
-
+      (changed || (addr) != (port->addr))) {
+    if(has_subnet){
+        port->addr = ((n->state.net & 0x7f) << 8)  | addr;
+    }else{
+        port->addr = ((n->state.net & 0x7f) << 8)  | ((n->state.subnet & LOW_NIBBLE) << 4) | (addr & LOW_NIBBLE);
+    }
+    
     // reset seq if input port
     if (dir == ARTNET_INPUT_PORT)
       n->ports_page[bind_index].in[id].seq = 0;
