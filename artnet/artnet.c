@@ -410,6 +410,9 @@ int artnet_set_handler(artnet_node vn,
     case ARTNET_POLL_HANDLER:
       callback = &n->callbacks.poll;
       break;
+    case ARTNET_SYNC_HANDLER:
+      callback = &n->callbacks.sync;
+      break;
     case ARTNET_REPLY_HANDLER:
       callback = &n->callbacks.reply;
       break;
