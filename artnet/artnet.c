@@ -456,7 +456,7 @@ int artnet_set_handler(artnet_node vn,
  * @param data    Data to be passed to the handler when its called
  */
 int artnet_set_dmx_handler(artnet_node vn,
-                           int (*fh)(artnet_node n, int port, void *d),
+                           int (*fh)(artnet_node n, int bindindex, int port, void *d),
                            void *data) {
   node n = (node) vn;
   check_nullnode(vn);
@@ -526,7 +526,7 @@ int artnet_set_rdm_handler(
 
 int artnet_set_rdm_initiate_handler(
     artnet_node vn,
-    int (*fh)(artnet_node n, int port, void *d),
+    int (*fh)(artnet_node n, int bindindex, int port, void *d),
     void *data) {
   node n = (node) vn;
   check_nullnode(vn);
@@ -539,7 +539,7 @@ int artnet_set_rdm_initiate_handler(
 
 int artnet_set_rdm_tod_handler(
     artnet_node vn,
-    int (*fh)(artnet_node n, int port, void *d),
+    int (*fh)(artnet_node n, int bindindex, int port, void *d),
     void *data) {
   node n = (node) vn;
   check_nullnode(vn);

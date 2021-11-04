@@ -217,7 +217,7 @@ typedef struct {
  * the dmx callback is triggered when a dmx packet arrives
  */
 typedef struct {
-  int (*fh)(artnet_node n, int portid, void *data);
+  int (*fh)(artnet_node n, int bindindex, int portid, void *data);
   void *data;
 } dmx_callback_t;
 

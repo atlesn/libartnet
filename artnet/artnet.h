@@ -151,7 +151,7 @@ typedef enum {
   ARTNET_RECV_HANDLER,    /**< Called on reciept of any ArtNet packet */
   ARTNET_SEND_HANDLER,    /**< Called on transmission of any ArtNet packet */
   ARTNET_POLL_HANDLER,    /**< Called on reciept of an ArtPoll packet */
-  ARTNET_SYNC_HANDLER,    /**< Called on reciept of an ArtSync packet */
+  ARTNET_SYNC_HANDLER,    /**< Called on reciept of an Art packet */
   ARTNET_REPLY_HANDLER,    /**< Called on reciept of an ArtPollReply packet */
   ARTNET_DMX_HANDLER,      /**< Called on reciept of an ArtDMX packet */
   ARTNET_ADDRESS_HANDLER,    /**< Called on reciept of an ArtAddress packet */
@@ -237,7 +237,7 @@ EXTERN int artnet_set_handler(artnet_node vn,
   int (*fh)(artnet_node n, void *pp, void *d),
   void* data);
 EXTERN int artnet_set_dmx_handler(artnet_node vn,
-  int (*fh)(artnet_node n, int port, void *d),
+  int (*fh)(artnet_node n, int bindindex, int port, void *d),
   void *data);
 EXTERN int artnet_set_program_handler(artnet_node vn,
   int (*fh)(artnet_node n, void *d),
@@ -249,10 +249,10 @@ EXTERN int artnet_set_rdm_handler(artnet_node vn,
   int (*fh)(artnet_node n, int address, uint8_t *rdm, int length, void *d),
   void *data);
 EXTERN int artnet_set_rdm_initiate_handler(artnet_node vn,
-  int (*fh)(artnet_node n, int port, void *d),
+  int (*fh)(artnet_node n, int bindindex, int port, void *d),
   void *data);
 EXTERN int artnet_set_rdm_tod_handler(artnet_node vn,
-  int (*fh)(artnet_node n, int port, void *d),
+  int (*fh)(artnet_node n, int bindindex, int port, void *d),
   void *data);
 
 // send functions

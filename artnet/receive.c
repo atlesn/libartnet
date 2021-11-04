@@ -239,7 +239,7 @@ void handle_dmx(node n, artnet_packet p) {
 
         // do the dmx callback here
         if (n->callbacks.dmx_c.fh != NULL)
-            n->callbacks.dmx_c.fh(n,i, n->callbacks.dmx_c.data);
+            n->callbacks.dmx_c.fh(n, j, i, n->callbacks.dmx_c.data);
         }
     }
   }
@@ -502,7 +502,7 @@ int handle_tod_control(node n, artnet_packet p) {
             //initiate full rdm discovery
             // do callback here
             if (n->callbacks.rdm_init_c.fh != NULL)
-            n->callbacks.rdm_init_c.fh(n, i, n->callbacks.rdm_init_c.data);
+            n->callbacks.rdm_init_c.fh(n, j, i, n->callbacks.rdm_init_c.data);
 
             // not really sure what to do here, the calling app should do a rdm
             // init and call artnet_add_rdm_devices() which will send a tod data
