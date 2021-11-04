@@ -1303,7 +1303,7 @@ int artnet_set_port_addr(artnet_node vn,
     return ARTNET_EARG;
   }
 
-  if (addr > 16) {
+  if (addr > 255) {
     artnet_error("%s : Attempt to set port %i to invalid address %#hhx\n", __FUNCTION__, id, addr);
     return ARTNET_EARG;
   }

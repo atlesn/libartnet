@@ -113,8 +113,8 @@ void handle_dmx(node n, artnet_packet p) {
   for(j = 0 ; j < n->nbpages ; j++){
     for (i = 0; i < ARTNET_MAX_PORTS; i++) {
         // if the addr matches and this port is enabled
-        if ((p->data.admx.universe == n->ports_page[j].out[i].port_addr &&
-            n->ports_page[j].out[i].port_enabled) || n->state.node_type == ARTNET_RAW) {
+        if (p->data.admx.universe == n->ports_page[j].out[i].port_addr &&
+            n->ports_page[j].out[i].port_enabled) {
 
         port = &n->ports_page[j].out[i];
         ipA = port->ipA.s_addr;
