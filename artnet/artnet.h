@@ -151,6 +151,7 @@ typedef enum {
   ARTNET_RECV_HANDLER,    /**< Called on reciept of any ArtNet packet */
   ARTNET_SEND_HANDLER,    /**< Called on transmission of any ArtNet packet */
   ARTNET_POLL_HANDLER,    /**< Called on reciept of an ArtPoll packet */
+  ARTNET_SYNC_HANDLER,    /**< Called on reciept of an ArtSync packet */
   ARTNET_REPLY_HANDLER,    /**< Called on reciept of an ArtPollReply packet */
   ARTNET_DMX_HANDLER,      /**< Called on reciept of an ArtDMX packet */
   ARTNET_ADDRESS_HANDLER,    /**< Called on reciept of an ArtAddress packet */
