@@ -46,7 +46,7 @@ int handle_poll(node n, artnet_packet p) {
   if (check_callback(n, p, n->callbacks.poll))
     return ARTNET_EOK;
 
-  //if (n->state.node_type != ARTNET_RAW) { //What would happen if a raw node was to answer poll requests ?
+  if (n->state.node_type != ARTNET_RAW) {
     //if we're told to unicast further replies
     if (p->data.ap.ttm & TTM_REPLY_MASK) {
       n->state.reply_addr = p->from;
@@ -65,7 +65,7 @@ int handle_poll(node n, artnet_packet p) {
         artnet_tx_poll_reply(n, i, TRUE);
     }
 
-  //}
+  }
   return ARTNET_EOK;
 }
 
