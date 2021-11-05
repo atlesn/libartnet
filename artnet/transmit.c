@@ -89,13 +89,24 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
 
     reply.data.ar.numbports = i;
 
+    uint16_t net_addr = 0 ;
     for (i=0; i< ARTNET_MAX_PORTS; i++) {
         reply.data.ar.porttypes[i] = n->ports_page[bind_index].types[i];
         reply.data.ar.goodinput[i] = n->ports_page[bind_index].in[i].port_status;
         reply.data.ar.goodoutput[i] = n->ports_page[bind_index].out[i].port_status;
         reply.data.ar.swin[i] = n->ports_page[bind_index].in[i].port_addr;
         reply.data.ar.swout[i] = n->ports_page[bind_index].out[i].port_addr;
+        if(n->ports_page[bind_index].out[i].port_enabled){
+            net_addr |= n->ports_page[bind_index].out[i].port.default_addr;
+        }
+        if(n->ports_page[bind_index].in[i].port_enabled){
+            net_addr |= n->ports_page[bind_index].in[i].port.default_addr;
+        }
     }
+
+    //For ArtNet-4 different port page might have a different net/subnet address
+    reply.data.ar.sub = (net_addr >> 4) & 0x0F;
+    reply.data.ar.subH = (net_addr >> 8) & 0xFF;
 
 
     for (i=0; i< ARTNET_MAX_PORTS; i++) {
