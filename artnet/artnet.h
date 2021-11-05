@@ -269,6 +269,7 @@ EXTERN int artnet_raw_send_dmx(artnet_node vn,
   uint8_t uni,
   int16_t length,
   const uint8_t *data);
+EXTERN  int artnet_send_sync(artnet_node vn);
 EXTERN int artnet_send_address(artnet_node n,
   artnet_node_entry e,
   const char *shortName,

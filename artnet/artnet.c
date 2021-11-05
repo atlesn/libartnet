@@ -745,6 +745,30 @@ int artnet_raw_send_dmx(artnet_node vn,
   return artnet_net_send(n, &p);
 }
 
+int artnet_send_sync(artnet_node vn) {
+  node n = (node) vn;
+  artnet_packet_t p;
+
+  check_nullnode(vn);
+
+  if (n->state.mode != ARTNET_ON)
+    return ARTNET_EACTION;
+
+  p.to.s_addr = n->state.bcast_addr.s_addr;
+
+  p.length = sizeof(artnet_sync_t) ;
+
+  // now build packet
+  memcpy( &p.data.sy.id, ARTNET_STRING, ARTNET_STRING_SIZE);
+  p.data.sy.aux1 = 0 ;
+  p.data.sy.aux2 = 0 ;
+  p.data.sy.opCode = htols(ARTNET_SYNC);
+  p.data.sy.verH = 0 ;
+  p.data.sy.ver = ARTNET_VERSION;
+
+  return artnet_net_send(n, &p);
+}
+
 
 
 int artnet_send_address(artnet_node vn,
