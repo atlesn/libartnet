@@ -1125,7 +1125,7 @@ int artnet_remove_rdm_device(artnet_node vn,
  * @return a pointer to the dmx data, NULL on error
  */
 
-uint8_t *artnet_read_dmx(artnet_node vn, int bind_index, int port_id, int *length) {
+uint8_t *artnet_read_dmx(artnet_node vn, int bind_index, int port_id, int *length, uint64_t * timestamp_usec) {
   node n = (node) vn;
 
   if (n == NULL)
@@ -1142,7 +1142,19 @@ uint8_t *artnet_read_dmx(artnet_node vn, int bind_index, int port_id, int *lengt
   }
 
   *length = n->ports_page[bind_index].out[port_id].length;
+  (*timestamp_usec) = n->ports_page[bind_index].out[port_id].timestamp_usec ;
   return &n->ports_page[bind_index].out[port_id].data[0];
+}
+
+/*
+ * Reads the latest sync timestamp
+ * @param vn the artnet node
+ * @return the last sync timestamp received
+ */
+
+uint64_t artnet_read_sync(artnet_node vn) {
+  node n = (node) vn;
+  return n->sync_timestamp_usec;
 }
 
 

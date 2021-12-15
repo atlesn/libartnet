@@ -315,8 +315,8 @@ EXTERN int artnet_remove_rdm_device(artnet_node vn,
   uint8_t uid[ARTNET_RDM_UID_WIDTH]);
 
 // recv functions
-EXTERN uint8_t *artnet_read_dmx(artnet_node n, int bind_index, int port_id, int *length);
-
+EXTERN uint8_t *artnet_read_dmx(artnet_node n, int bind_index, int port_id, int *length, uint64_t * timestamp_usec);
+EXTERN uint64_t artnet_read_sync(artnet_node vn);
 // state changing functions
 EXTERN int artnet_set_node_type(artnet_node n, artnet_node_type type);
 EXTERN int artnet_set_short_name(artnet_node vn, const char *name);

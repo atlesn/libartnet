@@ -74,6 +74,7 @@ int handle_poll(node n, artnet_packet p) {
  */
 int handle_sync(node n, artnet_packet p) {
   // run callback if defined
+  n->sync_timestamp_usec = p->timestamp.tv_sec * 1000000 + p->timestamp.tv_usec;
   if (check_callback(n, p, n->callbacks.sync)){
     return ARTNET_EOK;
   }
@@ -153,7 +154,7 @@ void handle_dmx(node n, artnet_packet p) {
          */
 
         check_merge_timeouts(n, j, i);
-
+        port->timestamp_usec = p->timestamp.tv_sec * 1000000 + p->timestamp.tv_usec;
         if (ipA == 0 && ipB == 0) {
             // first packet recv on this port
             port->ipA.s_addr = p->from.s_addr;

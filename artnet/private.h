@@ -326,6 +326,7 @@ typedef enum {
  */
 typedef struct {
   g_port_t port;
+  uint64_t timestamp_usec ;
   int  length;        // the length of the data THAT HAS CHANGED since the last dmx packet
   uint8_t enabled;    // true if the port has had it's address set, this is internal only,
                       // it's not used by the ArtNet protocol, otherwise the node keeps
@@ -461,7 +462,8 @@ typedef struct artnet_node_s{
   node_state_t state;      // the state struct
   node_callbacks_t callbacks;  // the callbacks struct
   uint8_t nbpages ;
-  artnet_ports_t ports_page [ARTNET_MAX_PAGES] ; 
+  artnet_ports_t ports_page [ARTNET_MAX_PAGES] ;
+  uint64_t sync_timestamp_usec;
   artnet_reply_t ar_temp;       // buffered artpoll reply packet
   node_list_t node_list;        // node list
   firmware_transfer_t firmware; // firmware details

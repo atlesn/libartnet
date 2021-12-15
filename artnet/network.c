@@ -524,6 +524,14 @@ int artnet_net_start(node n) {
       artnet_net_close(sock);
       return ARTNET_ENET;
     }
+    int timestampOn = 1;
+    if (setsockopt(sock,
+                   SOL_SOCKET,
+                   SO_TIMESTAMP,
+                   (int*) &timestampOn, // char* for win32
+                   sizeof(timestampOn)) == -1) {
+      artnet_error("Failed to enable timestamping on %s", artnet_net_last_error());
+    }
 
 #ifdef WIN32
     // ### LH - 22.08.2008
@@ -590,7 +598,8 @@ int artnet_net_recv(node n, artnet_packet p, int delay) {
   fd_set rset;
   struct timeval tv;
   int maxfdp1 = n->sd + 1;
-
+  p->timestamp.tv_sec = 0 ;
+    p->timestamp.tv_usec = 0 ;
   FD_ZERO(&rset);
   FD_SET((unsigned int) n->sd, &rset);
 
@@ -617,12 +626,34 @@ int artnet_net_recv(node n, artnet_packet p, int delay) {
   // need a check here for the amount of data read
   // should prob allow an extra byte after data, and pass the size as sizeof(Data) +1
   // then check the size read and if equal to size(data)+1 we have an error
-  len = recvfrom(n->sd,
+  struct msghdr   msg;
+  struct iovec    iov;
+  char            ctrl[CMSG_SPACE(sizeof(struct timeval))];
+  struct cmsghdr *cmsg = (struct cmsghdr *) &ctrl;
+
+  msg.msg_control      = (char *) ctrl;
+  msg.msg_controllen   = sizeof(ctrl);
+
+  msg.msg_name         = &cliAddr;
+  msg.msg_namelen      = cliLen;
+  msg.msg_iov          = &iov;
+  msg.msg_iovlen       = 1;
+  iov.iov_base         = (void *) &(p->data);
+  iov.iov_len          = sizeof(p->data);
+
+  len = recvmsg(n->sd, &msg, 0);
+  if (cmsg->cmsg_level == SOL_SOCKET &&
+      cmsg->cmsg_type  == SCM_TIMESTAMP &&
+      cmsg->cmsg_len   == CMSG_LEN(sizeof(p->timestamp)))
+  {
+    memcpy(&p->timestamp, CMSG_DATA(cmsg), sizeof(p->timestamp));
+  }
+  /*len = recvfrom(n->sd,
                  (char*) &(p->data), // char* for win32
                  sizeof(p->data),
                  0,
                  (SA*) &cliAddr,
-                 &cliLen);
+                 &cliLen);*/
   if (len < 0) {
     artnet_error("Recvfrom error %s", artnet_net_last_error());
     return ARTNET_ENET;

@@ -409,6 +409,7 @@ typedef struct {
   int length;
   struct in_addr from;
   struct in_addr to;
+  struct timeval timestamp;
   artnet_packet_type_t type;
   artnet_packet_union_t data;
 } artnet_packet_t;
