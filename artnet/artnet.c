@@ -765,8 +765,8 @@ int artnet_send_address(artnet_node vn,
     p.data.addr.ver = ARTNET_VERSION;
     p.data.addr.filler1 = 0;
     p.data.addr.filler2 = 0;
-    strncpy((char*) &p.data.addr.shortname, shortName, ARTNET_SHORT_NAME_LENGTH);
-    strncpy((char*) &p.data.addr.longname, longName, ARTNET_LONG_NAME_LENGTH);
+    memcpy(&p.data.addr.shortname, shortName, min(ARTNET_SHORT_NAME_LENGTH, strlen(shortName)+1));
+    memcpy(&p.data.addr.longname, longName, min(ARTNET_LONG_NAME_LENGTH, strlen(longName)+1));
 
     memcpy(&p.data.addr.swin, inAddr, ARTNET_MAX_PORTS);
     memcpy(&p.data.addr.swout, outAddr, ARTNET_MAX_PORTS);
