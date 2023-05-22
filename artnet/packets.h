@@ -56,6 +56,7 @@ enum artnet_packet_type_e {
   ARTNET_POLL = 0x2000,
   ARTNET_REPLY = 0x2100,
   ARTNET_DMX = 0x5000,
+  ARTNET_SYNC = 0x5200,
   ARTNET_ADDRESS = 0x6000,
   ARTNET_INPUT = 0x7000,
   ARTNET_TODREQUEST = 0x8000,
@@ -89,6 +90,17 @@ struct	artnet_poll_s {
 
 typedef struct artnet_poll_s artnet_poll_t;
 
+struct	artnet_sync_s {
+  uint8_t  id[8];
+  uint16_t opCode;//0x5200
+  uint8_t  verH;
+  uint8_t  ver;
+  uint8_t  aux1;
+  uint8_t  aux2;
+} PACKED;
+
+typedef struct artnet_sync_s artnet_sync_t;
+
 struct artnet_reply_s {
   uint8_t  id[8];
   uint16_t opCode;
@@ -121,7 +133,12 @@ struct artnet_reply_s {
   uint8_t  sp3;
   uint8_t  style;
   uint8_t  mac[ARTNET_MAC_SIZE];
-  uint8_t  filler[32];
+  uint8_t  bindip[ARTNET_IP_SIZE];
+  uint8_t  bindindex ;
+  uint8_t  status2 ;
+  uint8_t  goodoutputb [ARTNET_MAX_PORTS];
+  uint8_t  status3 ;
+  uint8_t  filler[21];
 } PACKED;
 
 typedef struct artnet_reply_s artnet_reply_t;
@@ -195,8 +212,8 @@ struct artnet_address_s {
   uint16_t opCode;
   uint8_t  verH;
   uint8_t  ver;
-  uint8_t  filler1;
-  uint8_t  filler2;
+  uint8_t  netswitch;
+  uint8_t  bindindex;
   uint8_t  shortname[ARTNET_SHORT_NAME_LENGTH];
   uint8_t  longname[ARTNET_LONG_NAME_LENGTH];
   uint8_t  swin[ARTNET_MAX_PORTS];
@@ -231,7 +248,7 @@ struct artnet_input_s {
   uint8_t  verH;
   uint8_t  ver;
   uint8_t  filler1;
-  uint8_t  filler2;
+  uint8_t  bindindex;
   uint8_t  numbportsH;
   uint8_t  numbports;
   uint8_t  input[ARTNET_MAX_PORTS];
@@ -277,8 +294,8 @@ struct artnet_toddata_s {
   uint8_t  spare4;
   uint8_t  spare5;
   uint8_t  spare6;
-  uint8_t  spare7;
-  uint8_t  spare8;
+  uint8_t  bindindex;
+  uint8_t  net;
   uint8_t  cmdRes;
   uint8_t  address;
   uint8_t  uidTotalHi;
@@ -372,6 +389,7 @@ typedef struct artnet_firmware_reply_s artnet_firmware_reply_t;
 // union of all artnet packets
 typedef union {
   artnet_poll_t ap;
+  artnet_sync_t sy;
   artnet_reply_t ar;
   artnet_ipprog_t aip;
   artnet_address_t addr;
@@ -391,6 +409,7 @@ typedef struct {
   int length;
   struct in_addr from;
   struct in_addr to;
+  struct timeval timestamp;
   artnet_packet_type_t type;
   artnet_packet_union_t data;
 } artnet_packet_t;

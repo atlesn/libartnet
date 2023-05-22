@@ -217,7 +217,7 @@ typedef struct {
  * the dmx callback is triggered when a dmx packet arrives
  */
 typedef struct {
-  int (*fh)(artnet_node n, int portid, void *data);
+  int (*fh)(artnet_node n, int bindindex, int portid, void *data);
   void *data;
 } dmx_callback_t;
 
@@ -251,6 +251,7 @@ typedef struct {
   callback_t recv;
   callback_t send;
   callback_t poll;
+  callback_t sync;
   callback_t reply;
   callback_t dmx;
   callback_t address;
@@ -282,8 +283,8 @@ typedef struct {
 
 // first a generic port
 typedef struct {
-  uint8_t addr;        // the port address
-  uint8_t default_addr;    // the address set by the hardware
+  uint16_t addr;        // the port address
+  uint16_t default_addr;    // the address set by the hardware
   uint8_t net_ctl;      // if the port address is under network control
   uint8_t status;        // status of the port
   uint8_t enabled;      // true if the port has had it's address set, this is internal only,
@@ -325,6 +326,7 @@ typedef enum {
  */
 typedef struct {
   g_port_t port;
+  uint64_t timestamp_usec ;
   int  length;        // the length of the data THAT HAS CHANGED since the last dmx packet
   uint8_t enabled;    // true if the port has had it's address set, this is internal only,
                       // it's not used by the ArtNet protocol, otherwise the node keeps
@@ -418,6 +420,7 @@ typedef struct {
   SI bcast_addr;
   uint8_t hw_addr[ARTNET_MAC_SIZE];
   uint8_t default_subnet;
+  uint8_t default_net;
   uint8_t subnet_net_ctl;
   int send_apr_on_change;
   int ar_count;
@@ -426,6 +429,7 @@ typedef struct {
   char long_name[ARTNET_LONG_NAME_LENGTH];
   char report[ARTNET_REPORT_LENGTH];
   uint8_t subnet;
+  uint8_t net;
   uint8_t oem_hi;
   uint8_t oem_lo;
   uint8_t esta_hi;
@@ -441,6 +445,15 @@ typedef struct {
 } node_peering_t;
 
 
+
+typedef struct artnet_ports_s {
+    uint8_t  types[ARTNET_MAX_PORTS];    // type of port
+    input_port_t in[ARTNET_MAX_PORTS];   // input ports
+    output_port_t out[ARTNET_MAX_PORTS]; // output ports
+} artnet_ports_t;
+
+typedef artnet_ports_t *port;
+
 /**
  * The main node structure
  */
@@ -448,11 +461,9 @@ typedef struct artnet_node_s{
   artnet_socket_t sd;      // the two sockets
   node_state_t state;      // the state struct
   node_callbacks_t callbacks;  // the callbacks struct
-  struct ports_s {
-    uint8_t  types[ARTNET_MAX_PORTS];    // type of port
-    input_port_t in[ARTNET_MAX_PORTS];   // input ports
-    output_port_t out[ARTNET_MAX_PORTS]; // output ports
-  } ports;
+  uint8_t nbpages ;
+  artnet_ports_t ports_page [ARTNET_MAX_PAGES] ;
+  uint64_t sync_timestamp_usec;
   artnet_reply_t ar_temp;       // buffered artpoll reply packet
   node_list_t node_list;        // node list
   firmware_transfer_t firmware; // firmware details
@@ -481,11 +492,12 @@ void reset_firmware_upload(node n);
 
 // exported from transmit.c
 int artnet_tx_poll(node n, const char *ip,  artnet_ttm_value_t ttm);
-int artnet_tx_poll_reply(node n, int reply);
-int artnet_tx_tod_data(node n, int id);
+int artnet_tx_sync(node n, const char *ip);
+int artnet_tx_poll_reply(node n, int bind_index, int reply);
+int artnet_tx_tod_data(node n, int bind_index, int id);
 int artnet_tx_firmware_reply(node n, in_addr_t ip, artnet_firmware_status_code code);
 int artnet_tx_firmware_packet(node n, firmware_transfer_t *firm );
-int artnet_tx_tod_request(node n);
+int artnet_tx_tod_request(node n, int bind_index);
 int artnet_tx_tod_control(node n, uint8_t address, artnet_tod_command_code action);
 int artnet_tx_rdm(node n, uint8_t address, uint8_t *data, int length);
 int artnet_tx_build_art_poll_reply(node n);
