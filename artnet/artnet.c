@@ -802,8 +802,6 @@ int artnet_send_address(artnet_node vn,
     p.data.addr.verH = 0;
     p.data.addr.ver = ARTNET_VERSION;
 
-    p.data.addr.filler1 = 0;
-    p.data.addr.filler2 = 0;
     p.data.addr.bindindex = 0; // TODO: Need to populate this field with information from the configuration
     p.data.addr.netswitch = 0;
 
