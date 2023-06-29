@@ -351,6 +351,7 @@ EXTERN int artnet_nl_get_length(artnet_node_list nl);
 EXTERN int artnet_dump_config(artnet_node n);
 EXTERN int artnet_get_config(artnet_node n, artnet_node_config_t *config);
 EXTERN artnet_socket_t artnet_get_sd(artnet_node n);
+EXTERN void artnet_get_sockopt(int *domain, int *type, int *protocol);
 EXTERN int artnet_set_fdset(artnet_node vn, fd_set *fdset);
 
 EXTERN char *artnet_strerror();

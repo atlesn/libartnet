@@ -270,11 +270,13 @@ static int get_ifaces(iface_t **if_head) {
   iface_t *if_tail, *iface;
   int ret = ARTNET_EOK;
   int sd;
+  int domain, type, protocol;
 
   *if_head = if_tail = NULL;
 
   // create socket to get iface config
-  sd = socket(PF_INET, SOCK_DGRAM, 0);
+  artnet_get_sockopt(&domain, &type, &protocol);
+  sd = socket(domain, type, protocol);
 
   if (sd < 0) {
     artnet_error("%s : Could not create socket %s", __FUNCTION__, strerror(errno));
@@ -475,6 +477,14 @@ e_return :
   return ret;
 }
 
+/*
+ * Get default socket options
+ */
+void artnet_get_sockopt(int *domain, int *type, int *protocol) {
+	*domain = PF_INET;
+	*type = SOCK_DGRAM;
+	*protocol = 0;
+}
 
 /*
  * Start listening on the socket
@@ -483,6 +493,7 @@ int artnet_net_start(node n) {
   artnet_socket_t sock;
   struct sockaddr_in servAddr;
   int true_flag = TRUE;
+  int domain, type, protocol;
   node tmp;
 
   // only attempt to bind if we are the group master
@@ -499,7 +510,8 @@ int artnet_net_start(node n) {
 #endif
 
     // create socket
-    sock = socket(PF_INET, SOCK_DGRAM, 0);
+    artnet_get_sockopt(&domain, &type, &protocol);
+    sock = socket(domain, type, protocol);
 
     if (sock == INVALID_SOCKET) {
       artnet_error("Could not create socket %s", artnet_net_last_error());
