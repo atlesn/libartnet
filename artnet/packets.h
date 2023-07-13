@@ -225,6 +225,12 @@ struct artnet_address_s {
 
 typedef struct artnet_address_s artnet_address_t;
 
+struct artnet_universe_s {
+  uint8_t sub_uni;
+  uint8_t net;
+} PACKED;
+
+typedef struct artnet_universe_s artnet_universe_t;
 
 struct artnet_dmx_s {
   uint8_t  id[8];
@@ -233,7 +239,10 @@ struct artnet_dmx_s {
   uint8_t  ver;
   uint8_t  sequence;
   uint8_t  physical;
-  uint16_t  universe;
+  union {
+      uint16_t universe;
+      artnet_universe_t universe_alt;
+  };
   uint8_t  lengthHi;
   uint8_t  length;
   uint8_t  data[ARTNET_DMX_LENGTH];
