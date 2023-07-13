@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "artnet.h"
 #include "artnet/packets.h"

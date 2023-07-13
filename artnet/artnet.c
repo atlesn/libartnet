@@ -63,6 +63,7 @@ int FALSE = 0;
 uint16_t LOW_BYTE = 0x00FF;
 uint16_t HIGH_BYTE = 0xFF00;
 
+uint8_t page_reserve (artnet_node_entry e, const uint8_t bind_index);
 void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply);
 int find_nodes_from_uni(node_list_t *nl, uint8_t uni, SI *ips, int size);
 
@@ -854,15 +855,17 @@ int artnet_send_input(artnet_node vn,
     p.length = sizeof(artnet_input_t);
     p.type = ARTNET_INPUT;
 
+    const uint8_t page_index = page_reserve(e, bind_index);
+
     // now build packet, copy the number of ports from the reply recieved from this node
     memcpy( &p.data.ainput.id, ARTNET_STRING, ARTNET_STRING_SIZE);
     p.data.ainput.opCode = htols(ARTNET_INPUT);
     p.data.ainput.verH = 0;
     p.data.ainput.ver = ARTNET_VERSION;
     p.data.ainput.filler1 = 0;
-    p.data.ainput.bindindex = bind_index; //TODO: need to populate this field with correct information
-    p.data.ainput.numbportsH = short_get_high_byte(e->numbports[bind_index]); //TODO: numbports needs to be recovered from the associated universe
-    p.data.ainput.numbports = short_get_low_byte(e->numbports[bind_index]);
+    p.data.ainput.bindindex = bind_index;
+    p.data.ainput.numbportsH = short_get_high_byte(e->_numbports[page_index]);
+    p.data.ainput.numbports = short_get_low_byte(e->_numbports[page_index]);
     memcpy(&p.data.ainput.input, &settings, ARTNET_MAX_PORTS);
 
     return artnet_net_send(n, &p);
@@ -1707,9 +1710,9 @@ int find_nodes_from_uni(node_list_t *nl, uint8_t uni, SI *ips, int size) {
 
   for (tmp = nl->first; tmp; tmp = tmp->next) {
     int added = FALSE;
-    for(k = 0; k < tmp->pub.numpages; k ++){
-        for (i =0; i < tmp->pub.numbports[k]; i++) {
-        if (tmp->pub.swout[k][i] == uni && ips) {
+    for(k = 0; k < tmp->pub._numpages; k ++){
+        for (i =0; i < tmp->pub._numbports[k]; i++) {
+        if (tmp->pub._swout[k][i] == uni && ips) {
             if (j < size && !added) {
             ips[j++] = tmp->ip;
             added = TRUE;
@@ -1722,6 +1725,23 @@ int find_nodes_from_uni(node_list_t *nl, uint8_t uni, SI *ips, int size) {
   return count;
 }
 
+/*
+ * Get existing page for the given bind index or a new page
+ */
+uint8_t page_reserve (artnet_node_entry e, const uint8_t bind_index) {
+	for (uint16_t i = 0; i < ARTNET_MAX_PAGES; i++) {
+		if (e->_bindindexes[i] == bind_index) {
+			// Existing entry
+			return (uint8_t) i;
+		}
+		else if (i == e->_numpages) {
+			// New entry
+			e->_numpages = i + 1;
+			return (uint8_t) i;
+		}
+	}
+	assert(0);
+}
 
 /*
  * Add a node to the node list from an ArtPollReply msg
@@ -1738,15 +1758,18 @@ void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply) {
   memcpy(&e->shortname, &reply->shortname,  sizeof(e->shortname));
   memcpy(&e->longname, &reply->longname, sizeof(e->longname));
   memcpy(&e->nodereport, &reply->nodereport, sizeof(e->nodereport));
-  //TODO: if node exists, need to take the bind index into account
-  while(e->numpages <= reply->bindindex) e->numpages ++ ;
-  e->numbports[reply->bindindex] = bytes_to_short(reply->numbportsH, reply->numbports); //Increment port numbers
-  memcpy(&(e->porttypes[reply->bindindex]), &reply->porttypes, ARTNET_MAX_PORTS);
-  memcpy(&(e->goodinput[reply->bindindex]), &reply->goodinput, ARTNET_MAX_PORTS);
-  memcpy(&(e->goodinput[reply->bindindex]), &reply->goodinput, ARTNET_MAX_PORTS);
-  memcpy(&(e->goodoutput[reply->bindindex]), &reply->goodoutput, ARTNET_MAX_PORTS);
-  memcpy(&(e->swin[reply->bindindex]), &reply->swin, ARTNET_MAX_PORTS);
-  memcpy(&(e->swout[reply->bindindex]), &reply->swout, ARTNET_MAX_PORTS);
+ 
+  const uint8_t page_index = page_reserve(e, reply->bindindex);
+ 
+  e->_bindindexes[page_index] = reply->bindindex;
+  e->_numbports[page_index] = bytes_to_short(reply->numbportsH, reply->numbports); //Increment port numbers
+  memcpy(&(e->_porttypes[page_index]), &reply->porttypes, ARTNET_MAX_PORTS);
+  memcpy(&(e->_goodinput[page_index]), &reply->goodinput, ARTNET_MAX_PORTS);
+  memcpy(&(e->_goodinput[page_index]), &reply->goodinput, ARTNET_MAX_PORTS);
+  memcpy(&(e->_goodoutput[page_index]), &reply->goodoutput, ARTNET_MAX_PORTS);
+  memcpy(&(e->_swin[page_index]), &reply->swin, ARTNET_MAX_PORTS);
+  memcpy(&(e->_swout[page_index]), &reply->swout, ARTNET_MAX_PORTS);
+ 
   e->swvideo = reply->swvideo;
   e->swmacro = reply->swmacro;
   e->swremote = reply->swremote;

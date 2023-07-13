@@ -1,4 +1,10 @@
+7/13/2023 Atle Solbakken <<atle@goliathdns.no>
+
+    * Store pages and bind index correctly in nodes. This
+      breaks existing programs.
+
 4/11/2007 Simon Newton <<nomis52@westnet.com.au>
+
     * Removed artnet_init
     * cleaned up code style
     * removed #defines

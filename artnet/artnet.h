@@ -180,13 +180,15 @@ typedef struct artnet_node_entry_s {
   uint8_t shortname[ARTNET_SHORT_NAME_LENGTH];  /**< The short node name */
   uint8_t longname[ARTNET_LONG_NAME_LENGTH];  /**< The long node name */
   uint8_t nodereport[ARTNET_REPORT_LENGTH];  /**< The node report */
-  uint8_t numpages;
-  int16_t numbports[ARTNET_MAX_PAGES];        /**< The number of ports */
-  uint8_t porttypes[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];    /**< The type of ports */
-  uint8_t goodinput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t goodoutput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t swin[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t swout[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  /* Pages get populated in order of arrival */
+  uint8_t _numpages;
+  int16_t _bindindexes[ARTNET_MAX_PAGES];      /**< The bindindex for each page */
+  int16_t _numbports[ARTNET_MAX_PAGES];        /**< The number of ports */
+  uint8_t _porttypes[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];    /**< The type of ports */
+  uint8_t _goodinput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t _goodoutput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t _swin[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  uint8_t _swout[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
   uint8_t swvideo;
   uint8_t swmacro;
   uint8_t swremote;
