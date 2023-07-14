@@ -165,7 +165,6 @@ typedef enum {
   ARTNET_FIRMWARE_REPLY_HANDLER,  /**< Called on reciept of an ArtFirmwareReply packet */
 } artnet_handler_name_t;
 
-
 /*
  * Describes a remote ArtNet node that has been discovered
  */
@@ -216,7 +215,6 @@ typedef struct {
   uint8_t out_ports[ARTNET_MAX_PORTS * ARTNET_MAX_PAGES];
 } artnet_node_config_t;
 
-
 /** The local ArtNet node */
 typedef void *artnet_node;
 
@@ -264,6 +262,11 @@ EXTERN int artnet_set_rdm_initiate_handler(artnet_node vn,
   void *data);
 EXTERN int artnet_set_rdm_tod_handler(artnet_node vn,
   int (*fh)(artnet_node n, int bindindex, int port, void *d),
+  void *data);
+
+// hook functions
+EXTERN int artnet_set_reply_node_hook (artnet_node vn,
+  int (*fh)(artnet_node_entry ne, uint8_t page_index, void *data),
   void *data);
 
 // send functions

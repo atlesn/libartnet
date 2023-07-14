@@ -87,7 +87,7 @@ int handle_sync(node n, artnet_packet p) {
  */
 void handle_reply(node n, artnet_packet p) {
   // update the node list
-  artnet_nl_update(&n->node_list, p);
+  artnet_nl_update(&n->node_list, p, &n->hooks.reply_node);
 
   // run callback if defined
   if (check_callback(n, p, n->callbacks.reply))

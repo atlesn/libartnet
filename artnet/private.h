@@ -277,6 +277,24 @@ typedef struct {
 //-----------------------------------------------------------------------------
 
 /*
+ * Data structures to manage hooks
+ */
+
+typedef struct {
+  int (*fh)(artnet_node_entry ne, uint8_t page_index, void *data);
+  void *data;
+} hook_reply_node_t;
+
+typedef struct {
+  hook_reply_node_t reply_node;
+} node_hooks_t;
+
+// End hook structures
+//-----------------------------------------------------------------------------
+
+
+
+/*
  * Begin port structures
  */
 
@@ -461,8 +479,9 @@ typedef artnet_ports_t *port;
  */
 typedef struct artnet_node_s{
   artnet_socket_t sd;      // the two sockets
-  node_state_t state;      // the state struct
-  node_callbacks_t callbacks;  // the callbacks struct
+  node_state_t state;
+  node_callbacks_t callbacks;
+  node_hooks_t hooks;
   uint8_t nbpages ;
   artnet_ports_t ports_page [ARTNET_MAX_PAGES] ;
   uint64_t sync_timestamp_usec;
@@ -483,7 +502,7 @@ typedef artnet_node_t *node;
 node_entry_private_t *find_private_entry( node n, artnet_node_entry e);
 void check_timeouts(node n);
 node_entry_private_t *find_entry_from_ip(node_list_t *nl, SI ip);
-int artnet_nl_update(node_list_t *nl, artnet_packet reply);
+int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *hook);
 int page_get (uint8_t *page, artnet_node_entry e, uint8_t bind_index);
 uint16_t net_encode (uint8_t net_switch, uint8_t sub_switch);
 uint16_t addr_encode (uint8_t net_switch, uint8_t sub_switch, uint16_t uni_or_addr);

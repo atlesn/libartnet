@@ -64,7 +64,7 @@ uint16_t LOW_BYTE = 0x00FF;
 uint16_t HIGH_BYTE = 0xFF00;
 
 uint8_t page_reserve (artnet_node_entry e, uint8_t bind_index);
-void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply);
+void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply, uint8_t page_index);
 int find_nodes_from_uni(node_list_t *nl, uint16_t uni, SI *ips, int size);
 
 /*
@@ -547,6 +547,17 @@ int artnet_set_rdm_tod_handler(
 
   n->callbacks.rdm_tod_c.fh = fh;
   n->callbacks.rdm_tod_c.data = data;
+  return ARTNET_EOK;
+}
+
+int artnet_set_reply_node_hook (artnet_node vn,
+    int (*fh)(artnet_node_entry ne, uint8_t page_index, void *data),
+    void *data) {
+  node n = (node) vn;
+  check_nullnode(vn);
+
+  n->hooks.reply_node.fh = fh;
+  n->hooks.reply_node.data = data;
   return ARTNET_EOK;
 }
 
@@ -1656,8 +1667,10 @@ char *artnet_strerror() {
 // Private functions follow
 //-----------------------------------------------------------------------------
 
-int artnet_nl_update(node_list_t *nl, artnet_packet reply) {
+int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *hook) {
   node_entry_private_t *entry;
+  uint8_t page_index;
+  int ret_tmp;
 
   entry = find_entry_from_ip(nl, reply->from);
 
@@ -1672,7 +1685,12 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply) {
 
     memset(entry, 0x00, sizeof(node_entry_private_t));
 
-    copy_apr_to_node_entry(&entry->pub, &reply->data.ar);
+    page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
+    if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
+      artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
+      return ret_tmp;
+    }
+    copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
     entry->ip = reply->from;
     entry->next = NULL;
 
@@ -1686,9 +1704,14 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply) {
     nl->length++;
   } else {
     // update entry
-    // TODO: Update entry and only affect bind index 
-    copy_apr_to_node_entry(&entry->pub, &reply->data.ar);
+    page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
+    if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
+      artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
+      return ret_tmp;
+    }
+    copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
   }
+
   return ARTNET_EOK;
 }
 
@@ -1719,7 +1742,6 @@ int find_nodes_from_uni(node_list_t *nl, uint16_t uni, SI *ips, int size) {
   node_entry_private_t *tmp;
   int count = 0;
   int i,k,j = 0;
-
   for (tmp = nl->first; tmp; tmp = tmp->next) {
     int added = FALSE;
     for(k = 0; k < tmp->pub.page_count; k ++){
@@ -1776,9 +1798,7 @@ int page_get (uint8_t *page, artnet_node_entry e, uint8_t bind_index) {
 /*
  * Add a node to the node list from an ArtPollReply msg
  */
-void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply) {
-  const uint8_t page_index = page_reserve(e, reply->bindindex);
-
+void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply, uint8_t page_index) {
   // the ip is network byte ordered
   memcpy(&e->ip, &reply->ip, 4);
   memcpy(&e->mac, &reply->mac, ARTNET_MAC_SIZE);
