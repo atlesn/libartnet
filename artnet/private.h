@@ -286,7 +286,7 @@ typedef struct {
 typedef struct {
   uint16_t addr;        // the port address
   uint16_t default_addr;    // the address set by the hardware
-  uint8_t net_ctl;      // if the port address is under network control
+  uint8_t net_ctl;       // if the port is under network control
   uint8_t status;        // status of the port
   uint8_t enabled;      // true if the port has had it's address set, this is internal only,
                 // it's not used by the ArtNet protocol, otherwise the node keeps
@@ -420,17 +420,18 @@ typedef struct {
   SI ip_addr;
   SI bcast_addr;
   uint8_t hw_addr[ARTNET_MAC_SIZE];
-  uint8_t default_subnet;
-  uint8_t default_net;
-  uint8_t subnet_net_ctl;
+  uint8_t default_sub_switch;
+  uint8_t default_net_switch;
+  uint8_t net_switch_is_net_ctl;
+  uint8_t sub_switch_is_net_ctl;
   int send_apr_on_change;
   int ar_count;
   int verbose;
   char short_name[ARTNET_SHORT_NAME_LENGTH];
   char long_name[ARTNET_LONG_NAME_LENGTH];
   char report[ARTNET_REPORT_LENGTH];
-  uint8_t subnet;
-  uint8_t net;
+  uint8_t sub_switch;
+  uint8_t net_switch;
   uint8_t oem_hi;
   uint8_t oem_lo;
   uint8_t esta_hi;
@@ -483,6 +484,9 @@ node_entry_private_t *find_private_entry( node n, artnet_node_entry e);
 void check_timeouts(node n);
 node_entry_private_t *find_entry_from_ip(node_list_t *nl, SI ip);
 int artnet_nl_update(node_list_t *nl, artnet_packet reply);
+int page_get (uint8_t *page, artnet_node_entry e, uint8_t bind_index);
+uint16_t net_encode (uint8_t net_switch, uint8_t sub_switch);
+uint16_t addr_encode (uint8_t net_switch, uint8_t sub_switch, uint16_t uni_or_addr);
 
 
 // exported from receive.c

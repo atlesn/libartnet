@@ -169,10 +169,10 @@ typedef enum {
 /*
  * Describes a remote ArtNet node that has been discovered
  */
-typedef struct artnet_node_entry_s {
-  uint8_t ip[ARTNET_IP_SIZE];  /**< The IP address, Network byte ordered*/
+typedef struct artnet_node_data_s {
   int16_t ver;          /**< The firmware version */
-  int16_t sub;          /**< The subnet address */
+  int8_t net_switch;     /**< The net address */
+  int8_t sub_switch;     /**< The subnet address */
   int16_t oem;          /**< The OEM value */
   uint8_t ubea;          /**< The UBEA version */
   uint8_t status;
@@ -180,20 +180,28 @@ typedef struct artnet_node_entry_s {
   uint8_t shortname[ARTNET_SHORT_NAME_LENGTH];  /**< The short node name */
   uint8_t longname[ARTNET_LONG_NAME_LENGTH];  /**< The long node name */
   uint8_t nodereport[ARTNET_REPORT_LENGTH];  /**< The node report */
-  /* Pages get populated in order of arrival */
-  uint8_t _numpages;
-  int16_t _bindindexes[ARTNET_MAX_PAGES];      /**< The bindindex for each page */
-  int16_t _numbports[ARTNET_MAX_PAGES];        /**< The number of ports */
-  uint8_t _porttypes[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];    /**< The type of ports */
-  uint8_t _goodinput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t _goodoutput[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t _swin[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
-  uint8_t _swout[ARTNET_MAX_PAGES][ARTNET_MAX_PORTS];
+  int16_t numbports;        /**< The number of ports */
+  uint8_t porttypes[ARTNET_MAX_PORTS];    /**< The type of ports */
+  uint8_t goodinput[ARTNET_MAX_PORTS];
+  uint8_t goodoutput[ARTNET_MAX_PORTS];
+  uint8_t swin[ARTNET_MAX_PORTS];
+  uint8_t swout[ARTNET_MAX_PORTS];
   uint8_t swvideo;
   uint8_t swmacro;
   uint8_t swremote;
   uint8_t style;
+} artnet_node_data_t;
+
+/*
+ * Parent structure for a node
+ */
+typedef struct artnet_node_entry_s {
+  /* Pages get populated in order of arrival */
+  uint8_t ip[ARTNET_IP_SIZE];  /**< The IP address, Network byte ordered*/
   uint8_t mac[ARTNET_MAC_SIZE];        /**< The MAC address of the node */
+  uint8_t page_count;  /**< The number of unique bindindexes received */
+  int16_t page_bindindexes[ARTNET_MAX_PAGES];      /**< The bindindex for each page for quick lookup */
+  artnet_node_data_t pages[ARTNET_MAX_PAGES];
 } artnet_node_entry_t;
 
 /** A pointer to an artnet_node_entry_t */
@@ -202,7 +210,8 @@ typedef artnet_node_entry_t *artnet_node_entry;
 typedef struct {
   char short_name[ARTNET_SHORT_NAME_LENGTH];
   char long_name[ARTNET_LONG_NAME_LENGTH];
-  uint8_t subnet;
+  uint8_t net_switch;
+  uint8_t sub_switch;
   uint8_t in_ports[ARTNET_MAX_PORTS * ARTNET_MAX_PAGES];
   uint8_t out_ports[ARTNET_MAX_PORTS * ARTNET_MAX_PAGES];
 } artnet_node_config_t;
@@ -274,10 +283,12 @@ EXTERN int artnet_raw_send_dmx(artnet_node vn,
 EXTERN  int artnet_send_sync(artnet_node vn);
 EXTERN int artnet_send_address(artnet_node n,
   artnet_node_entry e,
+  uint8_t bind_index,
   const char *shortName,
   const char *longName,
   uint8_t inAddr[ARTNET_MAX_PORTS],
   uint8_t outAddr[ARTNET_MAX_PORTS],
+  uint8_t netAddr,
   uint8_t subAddr,
   artnet_port_command_t cmd);
 EXTERN int artnet_send_input(artnet_node n,
@@ -335,7 +346,7 @@ EXTERN int artnet_set_port_addr(artnet_node n,
                                 int id,
                                 artnet_port_dir_t dir,
                                 uint8_t addr,
-                                uint8_t has_subnet);
+                                uint8_t addr_has_subnet);
 EXTERN int artnet_set_subnet_addr(artnet_node n, uint8_t subnet);
 EXTERN int artnet_set_net_addr(artnet_node n, uint8_t net);
 EXTERN int artnet_get_universe_addr(artnet_node n,

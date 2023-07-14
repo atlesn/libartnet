@@ -105,9 +105,8 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
     }
 
     //For ArtNet-4 different port page might have a different net/subnet address
-    reply.data.ar.sub = (net_addr >> 4) & 0x0F;
-    reply.data.ar.subH = (net_addr >> 8) & 0xFF;
-
+    reply.data.ar.net_switch = (net_addr >> 8) & 0xFF;
+    reply.data.ar.sub_switch = (net_addr >> 4) & 0x0F;
 
     for (i=0; i< ARTNET_MAX_PORTS; i++) {
         reply.data.ar.goodinput[i] = n->ports_page[bind_index].in[i].port_status;
@@ -431,8 +430,8 @@ int artnet_tx_build_art_poll_reply(node n) {
   ar->port = htols(ARTNET_PORT);
   ar->verH = 0;
   ar->ver = 0;
-  ar->subH = 0;
-  ar->sub = n->state.subnet;
+  ar->sub_switch = n->state.sub_switch;
+  ar->net_switch = n->state.net_switch;
   ar->oemH = n->state.oem_hi;
   ar->oem = n->state.oem_lo;
   ar->ubea = 0;

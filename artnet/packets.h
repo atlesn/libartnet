@@ -108,8 +108,8 @@ struct artnet_reply_s {
   uint16_t port;
   uint8_t  verH;
   uint8_t  ver;
-  uint8_t  subH;
-  uint8_t  sub;
+  uint8_t  net_switch;
+  uint8_t  sub_switch;
   uint8_t  oemH;
   uint8_t  oem;
   uint8_t  ubea;
@@ -212,13 +212,13 @@ struct artnet_address_s {
   uint16_t opCode;
   uint8_t  verH;
   uint8_t  ver;
-  uint8_t  netswitch;
+  uint8_t  net_switch;
   uint8_t  bindindex;
   uint8_t  shortname[ARTNET_SHORT_NAME_LENGTH];
   uint8_t  longname[ARTNET_LONG_NAME_LENGTH];
   uint8_t  swin[ARTNET_MAX_PORTS];
   uint8_t  swout[ARTNET_MAX_PORTS];
-  uint8_t  subnet;
+  uint8_t  sub_switch;
   uint8_t  swvideo;
   uint8_t  command;
 } PACKED;
