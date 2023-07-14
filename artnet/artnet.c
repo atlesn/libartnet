@@ -1686,10 +1686,6 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
     memset(entry, 0x00, sizeof(node_entry_private_t));
 
     page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
-    if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
-      artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
-      return ret_tmp;
-    }
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
     entry->ip = reply->from;
     entry->next = NULL;
@@ -1705,11 +1701,11 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
   } else {
     // update entry
     page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
-    if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
-      artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
-      return ret_tmp;
-    }
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
+  }
+  if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
+    artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
+    return ret_tmp;
   }
 
   return ARTNET_EOK;
