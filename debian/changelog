@@ -1,9 +1,15 @@
+libartnet (1.2.0) bullseye; urgency=medium
+
+  * Experimental support for ArtNet4
+
+ -- Atle Solbakken <atle@goliathdns.no>  Sat, 15 Jul 2023 21:29:47 +0200
+
 libartnet (1.1.1-1) unstable; urgency=medium
 
   * Change BindIndex and pages implementation in node object. Might break
     existing applications.
 
- -- LBSdrift <lbsdrift@posten.local>  Thu, 13 Jul 2023 06:36:12 +0200
+ -- Atle Solbakken <atle@goliathdns.no>  Thu, 13 Jul 2023 06:36:12 +0200
 
 libartnet (1.1.0-1) unstable; urgency=low
 

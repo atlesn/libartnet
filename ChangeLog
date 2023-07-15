@@ -2,6 +2,7 @@
 
     * Store pages and bind index correctly in nodes. This
       breaks existing programs.
+    * Work on implementing ArtNet4 universe adressing.
 
 4/11/2007 Simon Newton <<nomis52@westnet.com.au>
 
