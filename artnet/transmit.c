@@ -78,6 +78,7 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
     if (!response && n->state.mode == ARTNET_ON) {
         n->state.ar_count++;
     }
+
     reply.to = n->state.reply_addr;
     reply.type = ARTNET_REPLY;
     reply.length = sizeof(artnet_reply_t);
@@ -124,9 +125,10 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
 
     snprintf((char *) &reply.data.ar.nodereport,
             sizeof(reply.data.ar.nodereport),
-            "%04x [%04i] libartnet",
+            "#%04x [%04i] libartnet",
             n->state.report_code,
             n->state.ar_count);
+
     return artnet_net_send(n, &reply) ;
 }
 
