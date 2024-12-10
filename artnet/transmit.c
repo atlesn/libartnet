@@ -19,6 +19,7 @@
  */
 
 #include "private.h"
+#include <artnet/common.h>
 
 /*
  * Send an art poll
@@ -69,8 +70,13 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
     artnet_packet_t reply;
     int i;
 
+    if (bind_index < 0 || bind_index > ARTNET_MAX_PAGES - 1) {
+        artnet_error("Bind index out of range");
+        return ARTNET_EARG;
+    }
+
     if (!response && n->state.mode == ARTNET_ON) {
-    n->state.ar_count++;
+        n->state.ar_count++;
     }
     reply.to = n->state.reply_addr;
     reply.type = ARTNET_REPLY;
@@ -78,6 +84,9 @@ int artnet_tx_poll_reply(node n, int bind_index, int response) {
 
     // copy from a poll reply template
     memcpy(&reply.data, &n->ar_temp, sizeof(artnet_reply_t));
+
+    // bind index
+    reply.data.ar.bindindex = (uint8_t) bind_index;
 
     // port stuff here
     reply.data.ar.numbportsH = 0;
