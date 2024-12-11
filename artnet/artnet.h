@@ -228,7 +228,7 @@ typedef SOCKET artnet_socket_t;
 #endif
 
 // node control functions
-EXTERN artnet_node artnet_new(const char *ip, int verbose);
+EXTERN artnet_node artnet_new(const char *ip);
 EXTERN int artnet_setoem(artnet_node vn, uint8_t hi, uint8_t lo);
 EXTERN int artnet_setesta(artnet_node vn, char hi, char lo);
 EXTERN int artnet_set_bcast_limit(artnet_node vn, int limit);

@@ -16,6 +16,7 @@
  * network.c
  * Network code for libartnet
  * Copyright (C) 2004-2007 Simon Newton
+ * Copyright (C) 2023-2024 Atle Solbakken
  *
  */
 
@@ -422,21 +423,21 @@ int artnet_net_init(node n, const char *preferred_ip) {
   if ((ret = get_ifaces(&ift_head)))
     goto e_return;
 
-  if (n->state.verbose) {
-    printf("#### INTERFACES FOUND ####\n");
-    for (ift = ift_head; ift != NULL; ift = ift->next) {
-      printf("IP: %s\n", inet_ntoa(ift->ip_addr.sin_addr));
-      printf("  bcast: %s\n" , inet_ntoa(ift->bcast_addr.sin_addr));
-      printf("  hwaddr: ");
-      for (i = 0; i < ARTNET_MAC_SIZE; i++) {
-        if (i)
-          printf(":");
-        printf("%02x", (uint8_t) ift->hw_addr[i]);
-      }
-      printf("\n");
+#ifdef ARTNET_VERBOSE
+  printf("#### INTERFACES FOUND ####\n");
+  for (ift = ift_head; ift != NULL; ift = ift->next) {
+    printf("IP: %s\n", inet_ntoa(ift->ip_addr.sin_addr));
+    printf("  bcast: %s\n" , inet_ntoa(ift->bcast_addr.sin_addr));
+    printf("  hwaddr: ");
+    for (i = 0; i < ARTNET_MAC_SIZE; i++) {
+      if (i)
+        printf(":");
+      printf("%02x", (uint8_t) ift->hw_addr[i]);
     }
-    printf("#########################\n");
+    printf("\n");
   }
+  printf("#########################\n");
+#endif
 
   if (preferred_ip) {
     // search through list of interfaces for one with the correct address
@@ -523,8 +524,7 @@ int artnet_net_start(node n) {
     servAddr.sin_port = htons(ARTNET_PORT);
     servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (n->state.verbose)
-      printf("Binding to %s \n", inet_ntoa(servAddr.sin_addr));
+    artnet_debug("Binding to %s \n", inet_ntoa(servAddr.sin_addr));
 
     // allow bcasting
     if (setsockopt(sock,
@@ -580,8 +580,7 @@ int artnet_net_start(node n) {
     }
 #endif
 
-    if (n->state.verbose)
-      printf("Binding to %s \n", inet_ntoa(servAddr.sin_addr));
+    artnet_debug("Binding to %s \n", inet_ntoa(servAddr.sin_addr));
 
     // bind sockets
     if (bind(sock, (SA *) &servAddr, sizeof(servAddr)) == -1) {
@@ -699,8 +698,7 @@ int artnet_net_send(node n, artnet_packet p) {
   addr.sin_addr = p->to;
   p->from = n->state.ip_addr;
 
-  if (n->state.verbose)
-    printf("sending to %s\n" , inet_ntoa(addr.sin_addr));
+  artnet_debug("sending to %s\n" , inet_ntoa(addr.sin_addr));
 
   ret = sendto(n->sd,
                (char*) &p->data, // char* required for win32

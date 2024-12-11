@@ -16,6 +16,7 @@
  * artnet.c
  * Implementes the external functions for libartnet
  * Copyright (C) 2004-2007 Simon Newton
+ * Copyright (C) 2023-2024 Atle Solbakken
  */
 #include "private.h"
 
@@ -76,7 +77,7 @@ int find_nodes_from_uni(node_list_t *nl, uint16_t uni, SI *ips, int size);
  * @param debug level of logging provided 0: none
  * @return an artnet_node, or NULL on failure
  */
-artnet_node artnet_new(const char *ip, int verbose) {
+artnet_node artnet_new(const char *ip) {
   node n;
   int i, j;
 
@@ -94,7 +95,6 @@ artnet_node artnet_new(const char *ip, int verbose) {
   n->node_list.current = NULL;
   n->node_list.last = NULL;
   n->node_list.length = 0;
-  n->state.verbose = verbose;
   n->state.oem_hi = OEM_HI;
   n->state.oem_lo = OEM_LO;
   n->state.esta_hi = ESTA_HI;
@@ -1683,6 +1683,8 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
 
     memset(entry, 0x00, sizeof(node_entry_private_t));
 
+    artnet_debug("reserving page for %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
+
     page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
     entry->ip = reply->from;
@@ -1698,6 +1700,7 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
     nl->length++;
   } else {
     // update entry
+    artnet_debug("updating page for %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
     page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
   }

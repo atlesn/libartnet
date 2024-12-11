@@ -9,6 +9,9 @@ AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR([config])
 AM_INIT_AUTOMAKE
 
+# Build options
+AC_ARG_ENABLE([verbose], [AS_HELP_STRING([--enable-verbose], [Enable verbose output])], [enable_verbose=yes], [enable_verbose=no])
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
@@ -75,6 +78,15 @@ AC_CHECK_MEMBER([struct sockaddr.sa_len],
 
 # check for win32
 AM_CONDITIONAL(USING_WIN32, test "$host_os" = 'mingw32')
+
+# Defines
+AC_MSG_CHECKING(for verbose output)
+AS_IF([test enable_verbose=yes], [
+	AC_MSG_RESULT(yes)
+	AC_DEFINE([ARTNET_VERBOSE], [1], [Verbose output])
+], [
+	AC_MSG_RESULT(no)
+])
 
 AC_OUTPUT(Makefile \
           artnet/Makefile \

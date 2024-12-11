@@ -16,6 +16,7 @@
  * misc.h
  * Header file for misc.c
  * Copyright (C) 2004-2005 Simon Newton
+ * Copyright (C) 2023-2024 Atle Solbakken
  */
 
 #ifndef ARTNET_MISC_H
@@ -23,6 +24,17 @@
 
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
+
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+
+#ifdef ARTNET_VERBOSE
+#  define artnet_debug(...) printf(__VA_ARGS__)
+#else
+#  define artnet_debug(...)
+#endif
 
 extern char artnet_errstr[256];
 void artnet_error(const char *fmt, ...);

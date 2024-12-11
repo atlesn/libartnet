@@ -84,6 +84,9 @@ extern int FALSE;
 extern uint16_t LOW_BYTE;
 extern uint16_t HIGH_BYTE;
 
+// logging
+
+
 // non artnet specific
 #define SA struct sockaddr
 #define SI struct in_addr
@@ -444,7 +447,6 @@ typedef struct {
   uint8_t sub_switch_is_net_ctl;
   int send_apr_on_change;
   int ar_count;
-  int verbose;
   char short_name[ARTNET_SHORT_NAME_LENGTH];
   char long_name[ARTNET_LONG_NAME_LENGTH];
   char report[ARTNET_REPORT_LENGTH];

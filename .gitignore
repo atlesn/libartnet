@@ -5,6 +5,7 @@
 /config.status
 /config.log
 /config.h
+/config.h.in
 /config.h.in~
 /config/
 /aclocal.m4
@@ -14,6 +15,7 @@
 *.lo
 *.a
 *.la
+.deps/
 /stamp-h1
 /debian/files
 /debian/libartnet-dev/
