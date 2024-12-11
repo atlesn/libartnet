@@ -81,7 +81,7 @@ AM_CONDITIONAL(USING_WIN32, test "$host_os" = 'mingw32')
 
 # Defines
 AC_MSG_CHECKING(for verbose output)
-AS_IF([test enable_verbose=yes], [
+AS_IF([test enable_verbose = "yes"], [
 	AC_MSG_RESULT(yes)
 	AC_DEFINE([ARTNET_VERBOSE], [1], [Verbose output])
 ], [
