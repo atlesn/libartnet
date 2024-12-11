@@ -21,6 +21,8 @@
 #include "artnet.h"
 #include "private.h"
 #include <artnet/common.h>
+#include <netinet/in.h>
+#include <stdint.h>
 
 // various constants used everywhere
 int ARTNET_ADDRESS_NO_CHANGE = 0x7f;
@@ -57,6 +59,7 @@ uint8_t MERGE_TIMEOUT_SECONDS = 10;
 uint8_t FIRMWARE_TIMEOUT_SECONDS = 20;
 uint8_t RECV_NO_DATA = 1;
 uint8_t MAX_NODE_BCAST_LIMIT = 30; // always bcast after this point
+uint8_t REMOTE_TIMEOUT_SECONDS = 3 * 2; // timeout when remote has not been seen for a while (recommended poll interval times 2)
 
 #ifndef TRUE
 int TRUE = 1;
@@ -326,9 +329,11 @@ int artnet_read(artnet_node vn, int timeout) {
       check_timeouts(tmp);
 
     if (p.length > MIN_PACKET_SIZE && get_type(&p)) {
-      handle(n, &p);
+      if ((ret = handle(n, &p)) != ARTNET_EOK)
+        return ret;
       for (tmp = n->peering.peer; tmp != NULL && tmp != n; tmp = tmp->peering.peer) {
-        handle(tmp, &p);
+        if ((ret = handle(tmp, &p)) != ARTNET_EOK)
+          return ret;
       }
     }
   }
@@ -774,11 +779,23 @@ int artnet_send_dmx_remote(artnet_node vn,
                            int16_t length,
                            const uint8_t *data) {
   node n = (node) vn;
-  node_entry_private_t *tmp;
-  int i,k = 0;
-  int ret;
+  node_entry_private_t *tmp, *next;
+  int i, k, ret, count = 0;
+  uint64_t min_ts;
 
   check_nullnode(vn);
+
+  if ((ret = artnet_misc_get_timestamp(&min_ts)) != ARTNET_EOK)
+    return ret;
+  min_ts -= REMOTE_TIMEOUT_SECONDS * 1000 * 1000;
+
+  for (tmp = n->node_list.first; tmp; tmp = next) {
+    next = tmp->next;
+    if (tmp->pub.ts_last_seen < min_ts) {
+      artnet_debug("timeout for remote node %s after at least %i seconds, no ArtPollReply seen\n", inet_ntoa((struct in_addr) tmp->ip), REMOTE_TIMEOUT_SECONDS);
+      remove_entry(&n->node_list, tmp);
+    }
+  }
 
   for (tmp = n->node_list.first; tmp; tmp = tmp->next) {
     for(k = 0; k < tmp->pub.page_count; k ++) {
@@ -795,11 +812,12 @@ int artnet_send_dmx_remote(artnet_node vn,
                                            length,
                                            data)) != ARTNET_EOK)
           return ret;
+        count++;
       }
     }
   }
 
-  return ARTNET_EOK;
+  return count;
 }
 
 
@@ -1789,6 +1807,10 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
   node_entry_private_t *entry;
   uint8_t page_index;
   int ret_tmp;
+  uint64_t ts;
+
+  if ((ret_tmp = artnet_misc_get_timestamp(&ts)) != 0)
+    return ret_tmp;
 
   entry = find_entry_by_ip(nl, reply->from);
 
@@ -1806,11 +1828,9 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
     artnet_debug("reserving page for new entry %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
 
     if (page_reserve(&page_index, &entry->pub, reply->data.ar.bindindex) != ARTNET_EOK) {
-      artnet_error("pages exhausted for %s, removing entry\n", inet_ntoa(reply->from));
-      remove_entry_by_ip(nl, reply->from);
-      return ARTNET_EARG;
+      assert(0 && "Insertion of first page failed!?");
     }
-    copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
+
     entry->ip = reply->from;
     entry->next = NULL;
 
@@ -1828,11 +1848,15 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
 
     if (page_reserve(&page_index, &entry->pub, reply->data.ar.bindindex) != ARTNET_EOK) {
       artnet_error("pages exhausted for %s, removing entry\n", inet_ntoa(reply->from));
-      remove_entry_by_ip(nl, reply->from);
-      return ARTNET_EARG;
+      remove_entry(nl, entry);
+      return ARTNET_EREMOTE;
     }
-    copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
   }
+
+  copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
+
+  entry->pub.ts_last_seen = ts;
+
   if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
     artnet_error("%s: error %i from reply node hook\n", __FUNCTION__, ret_tmp);
     return ret_tmp;
@@ -1858,11 +1882,11 @@ node_entry_private_t *find_entry_by_ip(node_list_t *nl, SI ip) {
 /*
  * remove entry from list
  */
-void remove_entry_by_ip(node_list_t *nl, SI ip) {
+void remove_entry(node_list_t *nl, node_entry_private_t *e) {
   node_entry_private_t *tmp, *prev = NULL;
 
   for (tmp = nl->first; tmp; tmp = tmp->next) {
-    if (ip.s_addr == tmp->ip.s_addr) {
+    if (tmp == e) {
       if (nl->first == tmp) {
         nl->first = tmp->next;
       }

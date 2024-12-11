@@ -202,6 +202,7 @@ typedef struct artnet_node_entry_s {
   uint8_t page_count;  /**< The number of unique bindindexes received */
   int16_t page_bindindexes[ARTNET_MAX_PAGES];      /**< The bindindex for each page for quick lookup */
   artnet_node_data_t pages[ARTNET_MAX_PAGES];
+  uint64_t ts_last_seen;
 } artnet_node_entry_t;
 
 /** A pointer to an artnet_node_entry_t */

@@ -31,6 +31,8 @@ enum {
   ARTNET_EARG = -3, // argument error
   ARTNET_ESTATE = -4, // state error
   ARTNET_EACTION = -5, // invalid action
+  ARTNET_ESYS = -6, // system call error
+  ARTNET_EREMOTE = -7, // remote error, recoverable
 };
 
 

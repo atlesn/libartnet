@@ -505,7 +505,7 @@ typedef artnet_node_t *node;
 node_entry_private_t *find_private_entry( node n, artnet_node_entry e);
 void check_timeouts(node n);
 node_entry_private_t *find_entry_by_ip(node_list_t *nl, SI ip);
-void remove_entry_by_ip(node_list_t *nl, SI ip);
+void remove_entry(node_list_t *nl, node_entry_private_t *e);
 int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *hook);
 int page_get (uint8_t *page, artnet_node_entry e, uint8_t bind_index);
 uint16_t net_encode (uint8_t net_switch, uint8_t sub_switch);

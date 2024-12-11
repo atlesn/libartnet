@@ -18,8 +18,10 @@
  * Copyright (C) 2004-2005 Simon Newton
  */
 
+#include <artnet/common.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include "private.h"
 
 // static buffer for the error strings
@@ -53,4 +55,22 @@ void artnet_misc_int_to_bytes(int data, uint8_t *bytes) {
     bytes[2] = (data & 0x0000FF00) >> 8;
     bytes[1] = (data & 0x00FF0000) >> 16;
     bytes[0] = (data & 0xFF000000) >> 24;
+}
+
+/*
+ * Get a timestamp in microseconds
+ */
+int artnet_misc_get_timestamp(uint64_t *ts) {
+  struct timeval tv;
+  if (gettimeofday(&tv, NULL)) {
+    artnet_error("gettimeofdat() failed");
+    return ARTNET_ESYS;
+  }
+  uint64_t tv_sec = (uint64_t) tv.tv_sec;
+  uint64_t tv_factor = 1000000;
+  uint64_t tv_usec = (uint64_t) tv.tv_usec;
+
+  *ts = (tv_sec * tv_factor) + tv_usec;
+
+  return ARTNET_EOK;
 }

@@ -2,6 +2,13 @@ libartnet (1.2.1) bookworm; urgency=medium
 
   * In SRV mode, send outgoing DMX packets by looking up previously
     received ArtPollReply and finding subscribers
+  * Time out remote nodes if ArtPollReply has not been seen for a while
+    to stop unicasting data to them.
+  * Cascade errors when handling ArtPollReply to implementation through
+    artnet_read().
+  * Add ARTNET_EREMOTE for errors which are non-critical errors originating
+    from bad remotes
+  * Add ARTNET_ESYS for failed system calls
 
  -- Atle Solbakken <atle@goliathdns.no>  Wed, 11 Dec 2024 11:01:09 +0100
 

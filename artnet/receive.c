@@ -20,6 +20,7 @@
  */
 
 #include "private.h"
+#include <artnet/common.h>
 
 uint8_t _make_addr(uint8_t net_switch, uint8_t sub_switch, uint8_t addr);
 void check_merge_timeouts(node n, int bind_index, int port);
@@ -86,13 +87,18 @@ int handle_sync(node n, artnet_packet p) {
 /*
  * handle an art poll reply
  */
-void handle_reply(node n, artnet_packet p) {
+int handle_reply(node n, artnet_packet p) {
+  int ret_tmp;
+
   // update the node list
-  artnet_nl_update(&n->node_list, p, &n->hooks.reply_node);
+  if ((ret_tmp = artnet_nl_update(&n->node_list, p, &n->hooks.reply_node)) != ARTNET_EOK)
+    return ret_tmp;
 
   // run callback if defined
-  if (check_callback(n, p, n->callbacks.reply))
-    return;
+  if ((ret_tmp = check_callback(n, p, n->callbacks.reply)) != ARTNET_EOK)
+    return ret_tmp;
+
+  return ARTNET_EOK;
 }
 
 
@@ -780,9 +786,10 @@ void handle_ipprog(node n, artnet_packet p) {
  * the appropriate handler function
  */
 int handle(node n, artnet_packet p) {
+  int ret_tmp = ARTNET_EOK;
 
-  if (check_callback(n, p, n->callbacks.recv))
-    return 0;
+  if ((ret_tmp = check_callback(n, p, n->callbacks.recv)) != ARTNET_EOK)
+    return ret_tmp;
 
   switch (p->type) {
     case ARTNET_POLL:
@@ -792,7 +799,7 @@ int handle(node n, artnet_packet p) {
       handle_sync(n, p);
       break;
     case ARTNET_REPLY:
-      handle_reply(n,p);
+      ret_tmp = handle_reply(n, p);
       break;
     case ARTNET_DMX:
       handle_dmx(n, p);
@@ -855,7 +862,8 @@ int handle(node n, artnet_packet p) {
       n->state.report_code = ARTNET_RCPARSEFAIL;
       printf("artnet but not yet implemented!, op was %x\n", (int) p->type);
   }
-  return 0;
+
+  return ret_tmp;
 }
 
 /**

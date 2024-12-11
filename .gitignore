@@ -2,6 +2,7 @@
 /libartnet.pc
 /debian/tmp/
 /configure
+/configure~
 /config.status
 /config.log
 /config.h
