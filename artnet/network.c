@@ -417,7 +417,6 @@ int artnet_net_init(node n, const char *preferred_ip) {
   struct in_addr wanted_ip;
 
   int found = FALSE;
-  int i;
   int ret = ARTNET_EOK;
 
   if ((ret = get_ifaces(&ift_head)))
