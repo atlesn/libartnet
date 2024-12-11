@@ -688,6 +688,7 @@ int artnet_send_dmx(artnet_node vn,
 
     if (nodes == 0) {
       // no broadcast if nodes are not found
+      free(ips);
     } else if (nodes > n->state.bcast_limit) {
       // broadcast when there are many nodes
       free(ips);
