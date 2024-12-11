@@ -185,6 +185,7 @@ typedef struct artnet_node_data_s {
   uint8_t goodoutput[ARTNET_MAX_PORTS];
   uint8_t swin[ARTNET_MAX_PORTS];
   uint8_t swout[ARTNET_MAX_PORTS];
+  uint8_t swoutseq[ARTNET_MAX_PORTS]; /**< Sequence when writing DMX to remote */
   uint8_t swvideo;
   uint8_t swmacro;
   uint8_t swremote;
@@ -281,6 +282,10 @@ EXTERN int artnet_send_dmx(artnet_node n,
   const uint8_t *data);
 EXTERN int artnet_raw_send_dmx(artnet_node vn,
   uint8_t uni,
+  int16_t length,
+  const uint8_t *data);
+EXTERN int artnet_send_dmx_remote(artnet_node vn,
+  uint16_t uni,
   int16_t length,
   const uint8_t *data);
 EXTERN  int artnet_send_sync(artnet_node vn);

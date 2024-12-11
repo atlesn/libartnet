@@ -18,6 +18,7 @@
  * Copyright (C) 2004-2007 Simon Newton
  * Copyright (C) 2023-2024 Atle Solbakken
  */
+#include "artnet.h"
 #include "private.h"
 #include <artnet/common.h>
 
@@ -607,6 +608,40 @@ int artnet_send_poll_reply(artnet_node vn, int bind_index) {
   return artnet_tx_poll_reply(n, bind_index, FALSE);
 }
 
+/*
+ * Format dmx data
+ */
+int artnet_dmx_populate(artnet_packet_t *p,
+                      uint8_t physical,
+                      uint16_t universe,
+                      uint8_t seq,
+                      int16_t length,
+                      const uint8_t *data) {
+  if (length < 1 || length > ARTNET_DMX_LENGTH) {
+    artnet_error("%s : Length of dmx data out of bounds (%i < 1 || %i > ARTNET_MAX_DMX)", __FUNCTION__, length, length);
+    return ARTNET_EARG;
+  }
+
+  memset (p, '\0', sizeof(*p));
+
+  p->length = sizeof(artnet_dmx_t) - (ARTNET_DMX_LENGTH - length);
+
+  // now build packet
+  memcpy(&p->data.admx.id, ARTNET_STRING, ARTNET_STRING_SIZE);
+  p->data.admx.opCode =  htols(ARTNET_DMX);
+  p->data.admx.verH = 0;
+  p->data.admx.ver = ARTNET_VERSION;
+  p->data.admx.sequence = seq;
+  p->data.admx.physical = physical;
+  p->data.admx.universe = htols(universe);
+
+  // set length
+  p->data.admx.lengthHi = short_get_high_byte(length);
+  p->data.admx.length = short_get_low_byte(length);
+  memcpy(&p->data.admx.data, data, length);
+
+  return ARTNET_EOK;
+}
 
 /*
  * Sends some dmx data
@@ -639,11 +674,6 @@ int artnet_send_dmx(artnet_node vn,
   }
   port = &n->ports_page[bind_id].in[port_id];
 
-  if (length < 1 || length > ARTNET_DMX_LENGTH) {
-    artnet_error("%s : Length of dmx data out of bounds (%i < 1 || %i > ARTNET_MAX_DMX)", __FUNCTION__, length, length);
-    return ARTNET_EARG;
-  }
-
   if (port->port_status & PORT_STATUS_DISABLED_MASK) {
     artnet_error("%s : attempt to send on a disabled port (id:%i)", __FUNCTION__, port_id);
     return ARTNET_EARG;
@@ -652,21 +682,13 @@ int artnet_send_dmx(artnet_node vn,
   // ok we're going to send now, make sure we turn the activity bit on
   port->port_status = port->port_status | PORT_STATUS_ACT_MASK;
 
-  p.length = sizeof(artnet_dmx_t) - (ARTNET_DMX_LENGTH - length);
-
-  // now build packet
-  memcpy(&p.data.admx.id, ARTNET_STRING, ARTNET_STRING_SIZE);
-  p.data.admx.opCode =  htols(ARTNET_DMX);
-  p.data.admx.verH = 0;
-  p.data.admx.ver = ARTNET_VERSION;
-  p.data.admx.sequence = port->seq;
-  p.data.admx.physical = port_id;
-  p.data.admx.universe = htols(port->port_addr);
-
-  // set length
-  p.data.admx.lengthHi = short_get_high_byte(length);
-  p.data.admx.length = short_get_low_byte(length);
-  memcpy(&p.data.admx.data, data, length);
+  if ((ret = artnet_dmx_populate(&p,
+                                 port_id,
+                                 port->port_addr,
+                                 port->seq,
+                                 length,
+                                 data)) != ARTNET_EOK)
+    return ret;
 
   // default to bcast
   p.to.s_addr = n->state.bcast_addr.s_addr;
@@ -688,6 +710,7 @@ int artnet_send_dmx(artnet_node vn,
 
     if (nodes == 0) {
       // no broadcast if nodes are not found
+      artnet_debug("no node found for port %u, cannot send DMX\n", port->port_addr);
       free(ips);
     } else if (nodes > n->state.bcast_limit) {
       // broadcast when there are many nodes
@@ -706,6 +729,76 @@ int artnet_send_dmx(artnet_node vn,
     }
   }
   port->seq++;
+  return ARTNET_EOK;
+}
+
+/*
+ * Sends some dmx data to other discovered nodes by universe
+ */
+int artnet_send_dmx_unicast(node n,
+                            artnet_node_entry_t *node,
+                            artnet_node_data_t *page,
+                            int port_index,
+                            int16_t length,
+                            const uint8_t *data) {
+  artnet_packet_t p;
+  int ret;
+  uint16_t uni = addr_encode (page->net_switch, page->sub_switch, page->swout[port_index]);
+
+  if ((ret = artnet_dmx_populate(&p,
+                                 port_index,
+                                 uni,
+                                 page->swoutseq[port_index],
+                                 length,
+                                 data)) != ARTNET_EOK)
+    return ret;
+
+  memcpy (&p.to.s_addr, node->ip, sizeof(p.to));
+
+  artnet_debug("unicast DMX to %s universe %u port index %i\n", inet_ntoa(p.to), uni, port_index);
+
+  artnet_net_send(n, &p);
+
+  page->swoutseq[port_index]++;
+
+  return ARTNET_EOK;
+}
+
+/*
+ * Sends some dmx data to other discovered nodes by universe
+ *
+ * @param vn the artnet_node
+ */
+int artnet_send_dmx_remote(artnet_node vn,
+                           uint16_t uni,
+                           int16_t length,
+                           const uint8_t *data) {
+  node n = (node) vn;
+  node_entry_private_t *tmp;
+  int i,k = 0;
+  int ret;
+
+  check_nullnode(vn);
+
+  for (tmp = n->node_list.first; tmp; tmp = tmp->next) {
+    for(k = 0; k < tmp->pub.page_count; k ++) {
+      artnet_node_data_t *page = &tmp->pub.pages[k];
+      for (i = 0; i < ARTNET_MAX_PORTS; i++) {
+        if (!(page->porttypes[i] & 0x80))
+          continue;
+        if (addr_encode (page->net_switch, page->sub_switch, page->swout[i]) != uni)
+          continue;
+        if ((ret = artnet_send_dmx_unicast(n,
+                                           &tmp->pub,
+                                           page,
+                                           i,
+                                           length,
+                                           data)) != ARTNET_EOK)
+          return ret;
+      }
+    }
+  }
+
   return ARTNET_EOK;
 }
 
@@ -1523,7 +1616,10 @@ int artnet_get_config(artnet_node vn, artnet_node_config_t *config) {
  * @param vn the artnet_node
  */
 int artnet_dump_config(artnet_node vn) {
+  node_entry_private_t *tmp;
+  int i, j, k;
   node n = (node) vn;
+
   check_nullnode(vn);
 
   printf("#### NODE CONFIG ####\n");
@@ -1536,6 +1632,28 @@ int artnet_dump_config(artnet_node vn) {
   printf("Default Subnet: %#02x\n", n->state.default_sub_switch);
   printf("Net    controlled from network: %s\n", (n->state.sub_switch_is_net_ctl ? "yes" : "no"));
   printf("Subnet controlled from network: %s\n", (n->state.net_switch_is_net_ctl ? "yes" : "no"));
+
+  i = 0;
+  for (tmp = n->node_list.first; tmp; tmp = tmp->next) {
+    struct sockaddr_in in = {0};
+    memcpy (&in.sin_addr.s_addr, tmp->pub.ip, sizeof(in.sin_addr));
+    printf("  ## NODE %s\n", inet_ntoa(in.sin_addr));
+    for (j = 0; j < tmp->pub.page_count; j++) {
+      artnet_node_data_t *page = tmp->pub.pages + j;
+      printf("    ## PAGE %03d:%03d\n", i, j);
+      for (k = 0; j < ARTNET_MAX_PORTS; j++) {
+        if (page->porttypes[k] & 0x80) {
+          printf("    Port out[%i]: %u\n", k, page->swin[k]);
+        }
+        if (page->porttypes[k] & 0x40) {
+          printf("    Port  in[%i]: %u\n", k, page->swin[k]);
+        }
+      }
+      printf("    ## --\n");
+    }
+    i++;
+  }
+
   printf("#####################\n");
 
   return ARTNET_EOK;
@@ -1745,11 +1863,14 @@ void remove_entry_by_ip(node_list_t *nl, SI ip) {
 
   for (tmp = nl->first; tmp; tmp = tmp->next) {
     if (ip.s_addr == tmp->ip.s_addr) {
-      if (prev) {
-	prev->next = tmp->next;
+      if (nl->first == tmp) {
+        nl->first = tmp->next;
       }
-      else {
-	nl->first = tmp->next;
+      if (nl->last == tmp) {
+        nl->last = prev;
+      }
+      if (prev) {
+        prev->next = tmp->next;
       }
       nl->length--;
       free(tmp);

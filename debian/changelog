@@ -1,3 +1,10 @@
+libartnet (1.2.1) bookworm; urgency=medium
+
+  * In SRV mode, send outgoing DMX packets by looking up previously
+    received ArtPollReply and finding subscribers
+
+ -- Atle Solbakken <atle@goliathdns.no>  Wed, 11 Dec 2024 11:01:09 +0100
+
 libartnet (1.2.0) bullseye; urgency=medium
 
   * Experimental support for ArtNet4
