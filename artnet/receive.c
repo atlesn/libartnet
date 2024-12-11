@@ -16,6 +16,7 @@
  * receive.c
  * Handles the receiving of datagrams
  * Copyright (C) 2004-2007 Simon Newton
+ * Copyright (C) 2023-2024 Atle Solbakken
  */
 
 #include "private.h"
@@ -720,7 +721,7 @@ int handle_firmware_reply(node n, artnet_packet p) {
   if (check_callback(n, p, n->callbacks.firmware_reply))
     return ARTNET_EOK;
 
-  ent = find_entry_from_ip(&n->node_list, p->from);
+  ent = find_entry_by_ip(&n->node_list, p->from);
 
   // node doesn't exist in our list, or we're not doing a transfer to this node
   if (ent== NULL || ent->firmware.bytes_total == 0)

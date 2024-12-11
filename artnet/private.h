@@ -16,6 +16,7 @@
  * private.h
  * Private definitions, data structures, macros and functions for libartnet
  * Copyright (C) 2004-2007 Simon Newton
+ * Copyright (C) 2023-2024 Atle Solbakken
  */
 
 #if HAVE_CONFIG_H
@@ -503,7 +504,8 @@ typedef artnet_node_t *node;
 // exported from artnet.c
 node_entry_private_t *find_private_entry( node n, artnet_node_entry e);
 void check_timeouts(node n);
-node_entry_private_t *find_entry_from_ip(node_list_t *nl, SI ip);
+node_entry_private_t *find_entry_by_ip(node_list_t *nl, SI ip);
+void remove_entry_by_ip(node_list_t *nl, SI ip);
 int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *hook);
 int page_get (uint8_t *page, artnet_node_entry e, uint8_t bind_index);
 uint16_t net_encode (uint8_t net_switch, uint8_t sub_switch);

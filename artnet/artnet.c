@@ -19,6 +19,7 @@
  * Copyright (C) 2023-2024 Atle Solbakken
  */
 #include "private.h"
+#include <artnet/common.h>
 
 // various constants used everywhere
 int ARTNET_ADDRESS_NO_CHANGE = 0x7f;
@@ -64,7 +65,7 @@ int FALSE = 0;
 uint16_t LOW_BYTE = 0x00FF;
 uint16_t HIGH_BYTE = 0xFF00;
 
-uint8_t page_reserve (artnet_node_entry e, uint8_t bind_index);
+int page_reserve (uint8_t *page, artnet_node_entry e, uint8_t bind_index);
 void copy_apr_to_node_entry(artnet_node_entry e, artnet_reply_t *reply, uint8_t page_index);
 int find_nodes_from_uni(node_list_t *nl, uint16_t uni, SI *ips, int size);
 
@@ -1670,7 +1671,7 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
   uint8_t page_index;
   int ret_tmp;
 
-  entry = find_entry_from_ip(nl, reply->from);
+  entry = find_entry_by_ip(nl, reply->from);
 
   if (!entry) {
     // add to list
@@ -1683,9 +1684,13 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
 
     memset(entry, 0x00, sizeof(node_entry_private_t));
 
-    artnet_debug("reserving page for %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
+    artnet_debug("reserving page for new entry %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
 
-    page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
+    if (page_reserve(&page_index, &entry->pub, reply->data.ar.bindindex) != ARTNET_EOK) {
+      artnet_error("pages exhausted for %s, removing entry\n", inet_ntoa(reply->from));
+      remove_entry_by_ip(nl, reply->from);
+      return ARTNET_EARG;
+    }
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
     entry->ip = reply->from;
     entry->next = NULL;
@@ -1700,8 +1705,13 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
     nl->length++;
   } else {
     // update entry
-    artnet_debug("updating page for %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
-    page_index = page_reserve(&entry->pub, reply->data.ar.bindindex);
+    artnet_debug("updating page for existing entry %s:%i\n", inet_ntoa(reply->from), reply->data.ar.bindindex);
+
+    if (page_reserve(&page_index, &entry->pub, reply->data.ar.bindindex) != ARTNET_EOK) {
+      artnet_error("pages exhausted for %s, removing entry\n", inet_ntoa(reply->from));
+      remove_entry_by_ip(nl, reply->from);
+      return ARTNET_EARG;
+    }
     copy_apr_to_node_entry(&entry->pub, &reply->data.ar, page_index);
   }
   if (hook->fh && (ret_tmp = hook->fh(&entry->pub, page_index, hook->data)) != ARTNET_EOK) {
@@ -1716,7 +1726,7 @@ int artnet_nl_update(node_list_t *nl, artnet_packet reply, hook_reply_node_t *ho
 /*
  * check if this packet is in list
  */
-node_entry_private_t *find_entry_from_ip(node_list_t *nl, SI ip) {
+node_entry_private_t *find_entry_by_ip(node_list_t *nl, SI ip) {
   node_entry_private_t *tmp;
 
   for (tmp = nl->first; tmp; tmp = tmp->next) {
@@ -1726,6 +1736,27 @@ node_entry_private_t *find_entry_from_ip(node_list_t *nl, SI ip) {
   return tmp;
 }
 
+/*
+ * remove entry from list
+ */
+void remove_entry_by_ip(node_list_t *nl, SI ip) {
+  node_entry_private_t *tmp, *prev = NULL;
+
+  for (tmp = nl->first; tmp; tmp = tmp->next) {
+    if (ip.s_addr == tmp->ip.s_addr) {
+      if (prev) {
+	prev->next = tmp->next;
+      }
+      else {
+	nl->first = tmp->next;
+      }
+      nl->length--;
+      free(tmp);
+      break;
+    }
+    prev = tmp;
+  }
+}
 
 /*
  * Find all nodes with a port bound to a particular universe
@@ -1760,19 +1791,22 @@ int find_nodes_from_uni(node_list_t *nl, uint16_t uni, SI *ips, int size) {
 /*
  * Get existing page for the given bind index or a new page
  */
-uint8_t page_reserve (artnet_node_entry e, uint8_t bind_index) {
+int page_reserve (uint8_t *page, artnet_node_entry e, uint8_t bind_index) {
 	for (uint16_t i = 0; i < ARTNET_MAX_PAGES; i++) {
 		if (e->page_bindindexes[i] == bind_index) {
 			// Existing entry
-			return (uint8_t) i;
+			*page = i;
+			return ARTNET_EOK;
 		}
 		else if (i == e->page_count) {
 			// New entry
 			e->page_count = i + 1;
-			return (uint8_t) i;
+			e->page_bindindexes[i] = bind_index;
+			*page = i;
+			return ARTNET_EOK;
 		}
 	}
-	assert(0);
+	return ARTNET_EARG;
 }
 
 /*
